@@ -385,12 +385,12 @@ public:
 		}
 		std::cout<<"/ -"[middle+1];
 	}
-	void random(bool twoGen){
+	void random(int twoGen){
 		middle = (rand()&1)!=0?-1:1;
 		do{
 			//mix array
 			int tmp[16];
-			int nToMix = twoGen ? 12 : 16;
+			int nToMix = twoGen==2 ? 12 : (twoGen==1 ? 13 : 16);
 			for( int i=0; i<8; i++) {
 				tmp[2*i + (i>3?1:0)] = i;
 				tmp[2*i + (i>3?0:1)] = 8+i;
@@ -404,8 +404,16 @@ public:
 				pos[j++]=tmp[i];
 				if( tmp[i]<8 ) pos[j++]=tmp[i];
 			}
+			if (twoGen == 1 && (rand()&1)!=0 && pos[11]!=pos[12]) {
+				// in pseudo 2gen, with 50% chance, if the layers are validly separated, do a (0,-1)
+				tmp[0] = pos[12];
+				for (int i=12; i<=22; i++) {
+					pos[i] = pos[i+1];
+				}
+				pos[23] = tmp[0];
+			}
 			// test twistable
-		}while( pos[5]==pos[6] || pos[11]==pos[12] || pos[17]==pos[18] );
+		}while( pos[5]==pos[6] || pos[11]==pos[12] || pos[17]==pos[18] || pos[12]==pos[23]);
 	}
 	void set(int p[],int m){
 		for(int i=0;i<24;i++)pos[i]=p[i];
@@ -830,7 +838,7 @@ public:
 		shp2 = stt.tranTable[shp2][mirrmv[m]];
 		return r;
 	}
-	void solve(bool twoGen, int extraMoves){
+	void solve(int twoGen, int extraMoves){
 		moveLen=0;
 		unsigned long nodes=0;
 		// only even lengths if twist metric and middle is square
@@ -850,7 +858,7 @@ public:
 			}
 		};
 	}
-	int search( const int l, const int lm, unsigned long *nodes, bool twoGen){
+	int search( const int l, const int lm, unsigned long *nodes, int twoGen){
 		int i,r=0;
 
 		// search for l more moves. previous move was lm.
@@ -859,7 +867,7 @@ public:
 
 		//prune based on transformation
 		// (a,b)/(c,d)/(e,f) -> (6+a,6+b)/(d,c)/(6+e,6+f)
-		if( turnMetric && !ignoreTrans ){
+		if( turnMetric && !ignoreTrans && twoGen == 0){
 			// (a,b)/(c,d)/(e,f) -> (6+a,6+b)/(d,c)/(6+e,6+f)
 			// moves changes by:
 			// a,b,e,f=0/6 -> m++/m--
@@ -893,7 +901,7 @@ public:
 		if( lm>=2 ){
 			i=doMove(0);
 			do{
-				if( turnMetric || ignoreTrans || i<6 || l<2 ){
+				if( turnMetric || ignoreTrans || twoGen!=0 || i<6 || l<2 ){
 					moveList[moveLen++]=i;
 					lastTurns[4]=i;
 					r+=search( turnMetric?l-1:l, 0, nodes, twoGen);
@@ -905,12 +913,14 @@ public:
 			lastTurns[4]=0;
 		}
 		// try all bot layer moves
-		if( lm!=1 && !twoGen){
+		if( lm!=1 && twoGen != 2){
 			i=doMove(1);
 			do{
 				moveList[moveLen++]=i+12;
 				lastTurns[5]=i;
-				r+=search( turnMetric?l-1:l, 1, nodes, twoGen);
+				if (twoGen != 1 || i==1 || i==11) {
+					r+=search( turnMetric?l-1:l, 1, nodes, twoGen);
+				}
 				moveLen--;
 				if(r!=0 && !findAll) return(r);
 				i+=doMove(1);
@@ -1035,6 +1045,7 @@ void help(){
 	std::cout<<"   -g     Input/Output generating move sequences rather than solutions."<<std::endl;
 	std::cout<<"   -i<fn> Use as input each line from the file with filename <fn>."<<std::endl;
 	std::cout<<"   -2     Only search for solutions in 2gen (no bottom layer moves)."<<std::endl;
+	std::cout<<"   -p     Pseudo 2gen - only allow bottom layer moves of 1, 0, -1."<<std::endl;
 }
 
 
@@ -1044,7 +1055,7 @@ int main(int argc, char* argv[]){
 	bool ignoreTrans=false;
 	bool turnMetric=true;
 	bool findAll=false;
-	bool twoGen=false;
+	int twoGen = 0; // 0 = false, 1 = pseudo 2gen, 2 = true 2gen
 	int numpos = -1;
 	char *inpFile=NULL;
 	int posArg=-1;
@@ -1096,8 +1107,12 @@ int main(int argc, char* argv[]){
 				case 'i':
 				case 'I':
 					inpFile=argv[i]+2; break;
+				case 'p':
+				case 'P':
+					twoGen = 1;
+					break;
 				case '2':
-					twoGen = true;
+					twoGen = 2;
 					break;
 				default:
 					return show(1);
