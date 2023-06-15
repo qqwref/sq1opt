@@ -27,7 +27,7 @@ const char* errors[]={
 	"Expected A-H or 1-8.",//10
 	"Expected - or /.",//11
 	"Twist is blocked by corner.",//12
-	"Unrecognised argument.",//13
+	"Can't parse input as position string or movelist.",//13
 	"Unexpected bracket (.",//14
 	"Number expected.",//15
 	"Twist / expected.",//16
@@ -585,6 +585,7 @@ public:
 					md--;
 				}
 			}
+			if( !isTwistable() ) return 12;
 			if( verbosity>=2) std::cout<<"Input:"<<inp<<" ["<<lw<<"|"<<lu<<"]"<<std::endl;
 		}else if( f==1 ){
 			// generating move sequence. start parsing from beginning
@@ -619,6 +620,7 @@ public:
 					md--;
 				}
 			}
+			if( !isTwistable() ) return 12;
 			if( verbosity>=2) std::cout<<"Input:"<<inp<<" ["<<lw<<"|"<<lu<<"]"<<std::endl;
 		}else{
 			// position
@@ -867,8 +869,8 @@ public:
 			if( i<0 || ( i==0 && lastTurns[0]>=6 ) ) return(0);
 		}
 
-	  // check if it is now solved
-	  if( l==0 ){
+		// check if it is now solved
+		if( l==0 ){
 			if( shp==4163 && e0==69 && e1==44 && e2==44 && c0==69 && c1==44 && c2==44 && middle>=0 ){
 				printsol();
 				if(verbosity>=5) std::cout<<"Nodes="<<*nodes<<std::endl<<std::flush;
@@ -1019,7 +1021,6 @@ void help(){
 	std::cout<<"   -a     Generate all optimal sequences, not just the first one found."<<std::endl;
 	std::cout<<"   -x     Ignore the equivalence a,b/c,d/e,f = 6+a,6+b/d,c/6+e,6+f"<<std::endl;
 	std::cout<<"   -m     Ignore the middle layer shape."<<std::endl;
-	std::cout<<"   -n     Use negative numbers in output for anti-clockwise moves"<<std::endl;
 	std::cout<<"   -b     Use brackets in output around layer turns"<<std::endl;
 	std::cout<<"   -r<n>  Solve n random positions, or infinitely many if n is 0 or missing."<<std::endl;
 	std::cout<<"   -v<n>  Set verbosity, between 0 (minimal output) to 7 (full output)"<<std::endl;
@@ -1040,6 +1041,7 @@ int main(int argc, char* argv[]){
 	int numpos = -1;
 	char *inpFile=NULL;
 	int posArg=-1;
+	usenegative=true; // why would you not want negative turns?
 	for( int i=1; i<argc; i++){
 		if( argv[i][0]=='-' ){
 			switch( argv[i][1] ){
@@ -1057,7 +1059,8 @@ int main(int argc, char* argv[]){
 					ignoreMid=true; break;
 				case 'n':
 				case 'N':
-					usenegative=true; break;
+					// "use negatives" flag has been removed
+					break;
 				case 'b':
 				case 'B':
 					usebrackets=true; break;
