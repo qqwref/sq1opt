@@ -385,14 +385,18 @@ public:
 		}
 		std::cout<<"/ -"[middle+1];
 	}
-	void random(){
+	void random(bool twoGen){
 		middle = (rand()&1)!=0?-1:1;
 		do{
 			//mix array
 			int tmp[16];
-			for( int i=0;i<16; i++) tmp[i]=i;
-			for( int i=0;i<16; i++){
-				int j=rand()%(16-i);
+			int nToMix = twoGen ? 12 : 16;
+			for( int i=0; i<8; i++) {
+				tmp[2*i + (i>3?1:0)] = i;
+				tmp[2*i + (i>3?0:1)] = 8+i;
+			}
+			for( int i=0;i<nToMix; i++){
+				int j=rand()%(nToMix-i);
 				int k=tmp[i];tmp[i]=tmp[i+j];tmp[i+j]=k;
 			}
 			//store
@@ -824,7 +828,7 @@ public:
 		shp2 = stt.tranTable[shp2][mirrmv[m]];
 		return r;
 	}
-	void solve(){
+	void solve(bool twoGen){
 		moveLen=0;
 		unsigned long nodes=0;
 		// only even lengths if twist metric and middle is square
@@ -836,9 +840,9 @@ public:
 			if( !turnMetric && middle!=0 ) l++;
 			if(verbosity>=5) std::cout<<"searching depth "<<l<<std::endl<<std::flush;
 			for( int i=0; i<6; i++) lastTurns[i]=0;
-		}while( search(l,3, &nodes)==0 );
+		}while( search(l,3, &nodes, twoGen)==0 );
 	}
-	int search( const int l, const int lm, unsigned long *nodes){
+	int search( const int l, const int lm, unsigned long *nodes, bool twoGen){
 		int i,r=0;
 
 		// search for l more moves. previous move was lm.
@@ -884,7 +888,7 @@ public:
 				if( turnMetric || ignoreTrans || i<6 || l<2 ){
 					moveList[moveLen++]=i;
 					lastTurns[4]=i;
-					r+=search( turnMetric?l-1:l, 0, nodes);
+					r+=search( turnMetric?l-1:l, 0, nodes, twoGen);
 					moveLen--;
 					if(r!=0 && !findAll) return(r);
 				}
@@ -893,12 +897,12 @@ public:
 			lastTurns[4]=0;
 		}
 		// try all bot layer moves
-		if( lm!=1 ){
+		if( lm!=1 && !twoGen){
 			i=doMove(1);
 			do{
 				moveList[moveLen++]=i+12;
 				lastTurns[5]=i;
-				r+=search( turnMetric?l-1:l, 1, nodes);
+				r+=search( turnMetric?l-1:l, 1, nodes, twoGen);
 				moveLen--;
 				if(r!=0 && !findAll) return(r);
 				i+=doMove(1);
@@ -916,7 +920,7 @@ public:
 			lastTurns[5]=0;
 			doMove(2);
 			moveList[moveLen++]=0;
-			r+=search(l-1, 2, nodes);
+			r+=search(l-1, 2, nodes, twoGen);
 			if(r!=0 && !findAll) return(r);
 			moveLen--;
 			doMove(2);
@@ -1022,6 +1026,7 @@ void help(){
 	std::cout<<"   -h     Show this help"<<std::endl;
 	std::cout<<"   -g     Input/Output generating move sequences rather than solutions."<<std::endl;
 	std::cout<<"   -i<fn> Use as input each line from the file with filename <fn>."<<std::endl;
+	std::cout<<"   -2     Only search for solutions in 2gen (no bottom layer moves)."<<std::endl;
 }
 
 
@@ -1031,6 +1036,7 @@ int main(int argc, char* argv[]){
 	bool ignoreTrans=false;
 	bool turnMetric=true;
 	bool findAll=false;
+	bool twoGen=false;
 	int numpos = -1;
 	char *inpFile=NULL;
 	int posArg=-1;
@@ -1076,6 +1082,9 @@ int main(int argc, char* argv[]){
 				case 'i':
 				case 'I':
 					inpFile=argv[i]+2; break;
+				case '2':
+					twoGen = true;
+					break;
 				default:
 					return show(1);
 			}
@@ -1128,18 +1137,18 @@ int main(int argc, char* argv[]){
 	}
 
 	srand( (unsigned)time( NULL ) );
-	char buffer[200];
+	char buffer[2000];
 	do{
 		if( posArg<0 ){
 			if( inpFile!=NULL ){
-				is.getline(buffer,199);
+				is.getline(buffer,1999);
 				int r=p.parseInput(buffer);
 				if(r) {
 					show(r);
 					continue;
 				}
 			}else{
-				p.random();
+				p.random(twoGen);
 			}
 		}
 		if( ignoreMid ) p.middle=0;
@@ -1155,7 +1164,7 @@ int main(int argc, char* argv[]){
 		s.set(p, turnMetric, findAll, ignoreTrans);
 
 		//solve position
-		s.solve();
+		s.solve(twoGen);
 		std::cout<<std::endl;
 	}while( posArg<0 && ( (inpFile!=NULL && !is.eof() ) || (inpFile==NULL && (numpos==0 || numpos-- > 1)) ));
 
