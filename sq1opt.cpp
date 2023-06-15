@@ -33,7 +33,7 @@ const char* errors[]={
 	"Twist / expected.",//16
 };
 
-int verbosity = 6;
+int verbosity = 5;
 bool generator=false;
 bool usenegative=false;
 bool usebrackets=false;
@@ -830,19 +830,25 @@ public:
 		shp2 = stt.tranTable[shp2][mirrmv[m]];
 		return r;
 	}
-	void solve(bool twoGen){
+	void solve(bool twoGen, int extraMoves){
 		moveLen=0;
 		unsigned long nodes=0;
 		// only even lengths if twist metric and middle is square
 		int l=-1;
 		if( !turnMetric && middle==1 ) l=-2;
 		// do ida
-		do{
+		int optimalMoves = -1;
+		while(true){
 			l++;
 			if( !turnMetric && middle!=0 ) l++;
 			if(verbosity>=5) std::cout<<"searching depth "<<l<<std::endl<<std::flush;
 			for( int i=0; i<6; i++) lastTurns[i]=0;
-		}while( search(l,3, &nodes, twoGen)==0 );
+			int searchResult = search(l,3, &nodes, twoGen);
+			if (searchResult != 0) {
+				if (optimalMoves == -1) optimalMoves = l;
+				if (l >= optimalMoves + extraMoves || (!turnMetric && middle!=0 && l+1 >= optimalMoves + extraMoves)) break;
+			}
+		};
 	}
 	int search( const int l, const int lm, unsigned long *nodes, bool twoGen){
 		int i,r=0;
@@ -873,7 +879,7 @@ public:
 		if( l==0 ){
 			if( shp==4163 && e0==69 && e1==44 && e2==44 && c0==69 && c1==44 && c2==44 && middle>=0 ){
 				printsol();
-				if(verbosity>=5) std::cout<<"Nodes="<<*nodes<<std::endl<<std::flush;
+				if(verbosity>=6) std::cout<<"Nodes="<<*nodes<<std::endl<<std::flush;
 				return 1;
 			}else if( turnMetric ) return 0;
 		}
@@ -1018,7 +1024,8 @@ void help(){
 	std::cout<<"   numbers are clockwise turns, negative anti-clockwise."<<std::endl;
 	std::cout<<"<switches> are one of more of the following command line switches:"<<std::endl;
 	std::cout<<"   -w     Use only the number of twists to measure length, not layer turns."<<std::endl;
-	std::cout<<"   -a     Generate all optimal sequences, not just the first one found."<<std::endl;
+	std::cout<<"   -a<n>  Generate all optimal sequences, not just the first one found."<<std::endl;
+	std::cout<<"          If n is given, also find solutions with up to n extra moves."<<std::endl;
 	std::cout<<"   -x     Ignore the equivalence a,b/c,d/e,f = 6+a,6+b/d,c/6+e,6+f"<<std::endl;
 	std::cout<<"   -m     Ignore the middle layer shape."<<std::endl;
 	std::cout<<"   -b     Use brackets in output around layer turns"<<std::endl;
@@ -1042,6 +1049,7 @@ int main(int argc, char* argv[]){
 	char *inpFile=NULL;
 	int posArg=-1;
 	usenegative=true; // why would you not want negative turns?
+	int extraMoves = 0;
 	for( int i=1; i<argc; i++){
 		if( argv[i][0]=='-' ){
 			switch( argv[i][1] ){
@@ -1053,7 +1061,10 @@ int main(int argc, char* argv[]){
 					ignoreTrans=true; break;
 				case 'a':
 				case 'A':
-					findAll=true; break;
+					findAll=true;
+					extraMoves = parseInteger( argv[i]+2 );
+					if( extraMoves<0 ) return show(15);
+					break;
 				case 'm':
 				case 'M':
 					ignoreMid=true; break;
@@ -1167,7 +1178,7 @@ int main(int argc, char* argv[]){
 		s.set(p, turnMetric, findAll, ignoreTrans);
 
 		//solve position
-		s.solve(twoGen);
+		s.solve(twoGen, extraMoves);
 		std::cout<<std::endl;
 	}while( posArg<0 && ( (inpFile!=NULL && !is.eof() ) || (inpFile==NULL && (numpos==0 || numpos-- > 1)) ));
 
