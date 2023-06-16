@@ -867,6 +867,7 @@ public:
 
 		//prune based on transformation
 		// (a,b)/(c,d)/(e,f) -> (6+a,6+b)/(d,c)/(6+e,6+f)
+		// qq note: this step is only done for turn metric, because the pruning steps below are ignored
 		if( turnMetric && !ignoreTrans && twoGen == 0){
 			// (a,b)/(c,d)/(e,f) -> (6+a,6+b)/(d,c)/(6+e,6+f)
 			// moves changes by:
@@ -880,7 +881,9 @@ public:
 			else if( lastTurns[4]==6 ) i--;
 			if( lastTurns[5]==0 ) i++;
 			else if( lastTurns[5]==6 ) i--;
-			if( i<0 || ( i==0 && lastTurns[0]>=6 ) ) return(0);
+			int absTopMove = lastTurns[0]>6 ? 12-lastTurns[0] : lastTurns[0];
+			int absBottomMove = lastTurns[1]>6 ? 12-lastTurns[1] : lastTurns[1];
+			if( i<0 || ( i==0 && ((absTopMove + absBottomMove > 6) || (absTopMove + absBottomMove == 6 && absTopMove < absBottomMove)))) return 0;
 		}
 
 		// check if it is now solved
@@ -901,13 +904,15 @@ public:
 		if( lm>=2 ){
 			i=doMove(0);
 			do{
-				if( turnMetric || ignoreTrans || twoGen!=0 || i<6 || l<2 ){
-					moveList[moveLen++]=i;
-					lastTurns[4]=i;
-					r+=search( turnMetric?l-1:l, 0, nodes, twoGen);
-					moveLen--;
-					if(r!=0 && !findAll) return(r);
-				}
+				// qq note: Jaap's solver pruned the transformation by only allowing U moves between
+				// 0 and 5. I think it's better to do this on D, see below. We then allow any (x,0).
+				//if( turnMetric || ignoreTrans || twoGen!=0 || i<6 || l<2 ){
+				moveList[moveLen++]=i;
+				lastTurns[4]=i;
+				r+=search( turnMetric?l-1:l, 0, nodes, twoGen);
+				moveLen--;
+				if(r!=0 && !findAll) return(r);
+				//}
 				i+=doMove(0);
 			}while( i<12);
 			lastTurns[4]=0;
@@ -916,13 +921,22 @@ public:
 		if( lm!=1 && twoGen != 2){
 			i=doMove(1);
 			do{
-				moveList[moveLen++]=i+12;
-				lastTurns[5]=i;
-				if (twoGen != 1 || i==1 || i==11) {
-					r+=search( turnMetric?l-1:l, 1, nodes, twoGen);
+				// if we're allowed to use the transformation, and we're not doing any kind of
+				// 2gen, and we're not in the last two moves, then we should skip this move if the
+				// current (x,y) is worse than the alternative.
+				// the logic for that is: |x| + |y| >= 7, or |x| + |y| = 6 and |y| > |x|
+				int topMove = lastTurns[4];
+				int absTopMove = topMove>6 ? 12-topMove : topMove;
+				int absBottomMove = i>6 ? 12-i : i;
+				if (turnMetric || ignoreTrans || twoGen!=0 || l<2 || (absTopMove + absBottomMove < 6) || (absTopMove + absBottomMove == 6 && absTopMove >= absBottomMove)) {
+					moveList[moveLen++]=i+12;
+					lastTurns[5]=i;
+					if (twoGen != 1 || i==1 || i==11) {
+						r+=search( turnMetric?l-1:l, 1, nodes, twoGen);
+					}
+					moveLen--;
+					if(r!=0 && !findAll) return(r);
 				}
-				moveLen--;
-				if(r!=0 && !findAll) return(r);
 				i+=doMove(1);
 			}while( i<12);
 			lastTurns[5]=0;
@@ -1044,7 +1058,7 @@ void help(){
 	std::cout<<"   -h     Show this help"<<std::endl;
 	std::cout<<"   -g     Input/Output generating move sequences rather than solutions."<<std::endl;
 	std::cout<<"   -i<fn> Use as input each line from the file with filename <fn>."<<std::endl;
-	std::cout<<"   -2     Only search for solutions in 2gen (no bottom layer moves)."<<std::endl;
+	std::cout<<"   -2     2gen - no bottom layer moves."<<std::endl;
 	std::cout<<"   -p     Pseudo 2gen - only allow bottom layer moves of 1, 0, -1."<<std::endl;
 }
 
@@ -1164,9 +1178,9 @@ int main(int argc, char* argv[]){
 		std::cout<<"Find "<< (findAll? "every ":"first ");
 		std::cout<< (generator? "generator":"solution");
 		if (twoGen == 1) {
-			std::cout << ", Pseudo 2-gen";
+			std::cout << ", Pseudo 2gen";
 		} else if (twoGen == 2) {
-			std::cout << ", 2-gen";
+			std::cout << ", 2gen";
 		}
 		std::cout<< std::endl;
 	}
