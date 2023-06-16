@@ -1162,7 +1162,13 @@ int main(int argc, char* argv[]){
 	if(verbosity>=2){
 		std::cout<<"Flags: "<<(turnMetric? "Turn":"Twist")<<" Metric, ";
 		std::cout<<"Find "<< (findAll? "every ":"first ");
-		std::cout<< (generator? "generator":"solution")<<std::endl;
+		std::cout<< (generator? "generator":"solution");
+		if (twoGen == 1) {
+			std::cout << ", Pseudo 2-gen";
+		} else if (twoGen == 2) {
+			std::cout << ", 2-gen";
+		}
+		std::cout<< std::endl;
 	}
 
 	srand( (unsigned)time( NULL ) );
