@@ -838,7 +838,7 @@ public:
 		shp2 = stt.tranTable[shp2][mirrmv[m]];
 		return r;
 	}
-	void solve(int twoGen, int extraMoves){
+	void solve(int twoGen, int extraMoves, bool keepCubeShape){
 		moveLen=0;
 		unsigned long nodes=0;
 		// only even lengths if twist metric and middle is square
@@ -851,14 +851,14 @@ public:
 			if( !turnMetric && middle!=0 ) l++;
 			if(verbosity>=5) std::cout<<"searching depth "<<l<<std::endl<<std::flush;
 			for( int i=0; i<6; i++) lastTurns[i]=0;
-			int searchResult = search(l,3, &nodes, twoGen);
+			int searchResult = search(l,3, &nodes, twoGen, keepCubeShape);
 			if (searchResult != 0) {
 				if (optimalMoves == -1) optimalMoves = l;
 				if (l >= optimalMoves + extraMoves || (!turnMetric && middle!=0 && l+1 >= optimalMoves + extraMoves)) break;
 			}
 		};
 	}
-	int search( const int l, const int lm, unsigned long *nodes, int twoGen){
+	int search( const int l, const int lm, unsigned long *nodes, int twoGen, bool keepCubeShape){
 		int i,r=0;
 
 		// search for l more moves. previous move was lm.
@@ -909,7 +909,7 @@ public:
 				//if( turnMetric || ignoreTrans || twoGen!=0 || i<6 || l<2 ){
 				moveList[moveLen++]=i;
 				lastTurns[4]=i;
-				r+=search( turnMetric?l-1:l, 0, nodes, twoGen);
+				r+=search( turnMetric?l-1:l, 0, nodes, twoGen, keepCubeShape);
 				moveLen--;
 				if(r!=0 && !findAll) return(r);
 				//}
@@ -932,7 +932,7 @@ public:
 					moveList[moveLen++]=i+12;
 					lastTurns[5]=i;
 					if (twoGen != 1 || i==1 || i==11) {
-						r+=search( turnMetric?l-1:l, 1, nodes, twoGen);
+						r+=search( turnMetric?l-1:l, 1, nodes, twoGen, keepCubeShape);
 					}
 					moveLen--;
 					if(r!=0 && !findAll) return(r);
@@ -951,10 +951,12 @@ public:
 			lastTurns[4]=0;
 			lastTurns[5]=0;
 			doMove(2);
-			moveList[moveLen++]=0;
-			r+=search(l-1, 2, nodes, twoGen);
-			if(r!=0 && !findAll) return(r);
-			moveLen--;
+			if (!keepCubeShape || ((shp==5052 || shp==4148) && (shp2==5052 || shp2==4148))) {
+				moveList[moveLen++]=0;
+				r+=search(l-1, 2, nodes, twoGen, keepCubeShape);
+				moveLen--;
+				if(r!=0 && !findAll) return(r);
+			}
 			doMove(2);
 			lastTurns[5]=lastTurns[3];
 			lastTurns[4]=lastTurns[2];
@@ -1060,6 +1062,7 @@ void help(){
 	std::cout<<"   -i<fn> Use as input each line from the file with filename <fn>."<<std::endl;
 	std::cout<<"   -2     2gen - no bottom layer moves."<<std::endl;
 	std::cout<<"   -p     Pseudo 2gen - only allow bottom layer moves of 1, 0, -1."<<std::endl;
+	std::cout<<"   -c     Only generate algs that stay in a square/square cubeshape."<<std::endl;
 }
 
 
@@ -1075,6 +1078,7 @@ int main(int argc, char* argv[]){
 	int posArg=-1;
 	usenegative=true; // why would you not want negative turns?
 	int extraMoves = 0;
+	bool keepCubeShape = false;
 	for( int i=1; i<argc; i++){
 		if( argv[i][0]=='-' ){
 			switch( argv[i][1] ){
@@ -1127,6 +1131,10 @@ int main(int argc, char* argv[]){
 					break;
 				case '2':
 					twoGen = 2;
+					break;
+				case 'c':
+				case 'C':
+					keepCubeShape = true;
 					break;
 				default:
 					return show(1);
@@ -1182,6 +1190,9 @@ int main(int argc, char* argv[]){
 		} else if (twoGen == 2) {
 			std::cout << ", 2gen";
 		}
+		if (keepCubeShape) {
+			std::cout << ", Keep Cube Shape";
+		}
 		std::cout<< std::endl;
 	}
 
@@ -1213,7 +1224,7 @@ int main(int argc, char* argv[]){
 		s.set(p, turnMetric, findAll, ignoreTrans);
 
 		//solve position
-		s.solve(twoGen, extraMoves);
+		s.solve(twoGen, extraMoves, keepCubeShape);
 		std::cout<<std::endl;
 	}while( posArg<0 && ( (inpFile!=NULL && !is.eof() ) || (inpFile==NULL && (numpos==0 || numpos-- > 1)) ));
 
