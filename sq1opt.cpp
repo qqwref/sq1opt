@@ -31,6 +31,7 @@ const char* errors[]={
 	"Unexpected bracket (.",//14
 	"Number expected.",//15
 	"Twist / expected.",//16
+	"Position string has too many copies of a piece.",//17
 };
 
 int verbosity = 5;
@@ -633,6 +634,8 @@ public:
 		}else{
 			// position
 			if( strlen(inp)!=16 && strlen(inp)!=17 ) return(9);
+			int pieceCount[16];
+			for (int i=0; i<16; i++) pieceCount[i] = 0;
 			int j=0;
 			int pi[24];
 			for( int i=0; i<16; i++){
@@ -642,7 +645,11 @@ public:
 				else if(k>='1' && k<='8') k-='1'-8;
 				else return(10);
 				pi[j++] = k;
+				pieceCount[k]++;
 				if( k<8) pi[j++] = k;
+			}
+			for (int i=0; i<16; i++) {
+				if (pieceCount[i] > 1) return(17);
 			}
 			int midLayer=0;
 			if( strlen(inp)==17 ){
