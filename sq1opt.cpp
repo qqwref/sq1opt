@@ -32,6 +32,7 @@ const char* errors[]={
 	"Number expected.",//15
 	"Twist / expected.",//16
 	"Position string has too many copies of a piece.",//17
+	"Can't stay in cube shape and also use 2gen.",//18
 };
 
 int verbosity = 5;
@@ -386,26 +387,74 @@ public:
 		}
 		std::cout<<"/ -"[middle+1];
 	}
-	void random(int twoGen){
+	void random(int twoGen, bool keepCubeShape){
 		middle = (rand()&1)!=0?-1:1;
 		do{
-			//mix array
+			//make starting position
 			int tmp[16];
-			int nToMix = twoGen==2 ? 12 : (twoGen==1 ? 13 : 16);
 			for( int i=0; i<8; i++) {
 				tmp[2*i + (i>3?1:0)] = i;
 				tmp[2*i + (i>3?0:1)] = 8+i;
 			}
-			for( int i=0;i<nToMix; i++){
-				int j=rand()%(nToMix-i);
-				int k=tmp[i];tmp[i]=tmp[i+j];tmp[i+j]=k;
+			// shuffle
+			if (keepCubeShape) {
+				bool parity = false;
+				int cornersToMix = twoGen==1 ? 6 : 8;
+				int edgesToMix = twoGen==1 ? 7 : 8;
+				for (int i=0; i<cornersToMix; i++) {
+					int j = i + rand() % (cornersToMix - i);
+					int k = tmp[2*i + (i>3?1:0)];
+					tmp[2*i + (i>3?1:0)] = tmp[2*j + (j>3?1:0)];
+					tmp[2*j + (j>3?1:0)] = k;
+					if (i!=j) parity ^= true;
+				}
+				for (int i=0; i<edgesToMix; i++) {
+					int j = i + rand() % (edgesToMix - i);
+					int k = tmp[2*i + (i>3?0:1)];
+					tmp[2*i + (i>3?0:1)] = tmp[2*j + (j>3?0:1)];
+					tmp[2*j + (j>3?0:1)] = k;
+					if (i!=j) parity ^= true;
+				}
+				if (parity) {
+					int k = tmp[0];
+					tmp[0] = tmp[2];
+					tmp[2] = k;
+				}
+			} else {
+				int nToMix = twoGen==2 ? 12 : (twoGen==1 ? 13 : 16);
+				for( int i=0;i<nToMix; i++){
+					int j=rand()%(nToMix-i);
+					int k=tmp[i];tmp[i]=tmp[i+j];tmp[i+j]=k;
+				}
 			}
-			//store
+			//convert to position array
 			for(int i=0, j=0;i<16;i++){
 				pos[j++]=tmp[i];
 				if( tmp[i]<8 ) pos[j++]=tmp[i];
 			}
-			if (twoGen == 1 && (rand()&1)!=0 && pos[11]!=pos[12]) {
+			// if p2g and keeping cubeshape, are the corners solvable in 2gen? if not, try again
+			if (twoGen == 1 && keepCubeShape) {
+				if (!has2GenCorners()) {
+					pos[6] = pos[5]; continue; // fail the condition
+				}
+			}
+			// ABF. if keeping cube shape, adjust both; otherwise, if p2g, adjust D only
+			if (keepCubeShape) {
+				if ((rand()&1)!=0) {
+					tmp[0] = pos[11];
+					for (int i=10; i>=0; i--) {
+						pos[i+1] = pos[i];
+					}
+					pos[0] = tmp[0];
+				}
+				if ((rand()&1)!=0) {
+					tmp[0] = pos[12];
+					for (int i=12; i<=22; i++) {
+						pos[i] = pos[i+1];
+					}
+					pos[23] = tmp[0];
+				}
+			} else if (twoGen == 1 && (rand()&1)!=0 && pos[11]!=pos[12]) {
 				// in pseudo 2gen, with 50% chance, if the layers are validly separated, do a (0,-1)
 				tmp[0] = pos[12];
 				for (int i=12; i<=22; i++) {
@@ -660,6 +709,52 @@ public:
 			set(pi,midLayer);
 		}
 		return(0);
+	}
+	bool has2GenCorners(){
+		// we should check that shape is square/square
+		
+		// get corners
+		int tmp[6];
+		int j=0;
+		for (int i=0; i<18; i++) {
+			if (pos[i]<8) {
+				if (j%2 == 0) tmp[j/2] = pos[i];
+				j++;
+			}
+		}
+		// place D corners - if we find a D corner on U, AUF and then insert
+		int found_d = -1;
+		for (int i=0; i<4; i++) if(tmp[i]>3) found_d = i;
+		if (found_d > -1) {
+			int tmp2[4];
+			for (int i=0; i<4; i++) tmp2[i] = tmp[i];
+			for (int i=0; i<4; i++) tmp[i] = tmp2[(i + found_d) % 4];
+			int k = tmp[0]; tmp[0] = tmp[4]; tmp[4] = k;
+			k = tmp[2]; tmp[2] = tmp[3]; tmp[3] = k;
+		}
+		found_d = -1;
+		for (int i=0; i<4; i++) if(tmp[i]>3) found_d = i;
+		if (found_d > -1) {
+			int tmp2[4];
+			for (int i=0; i<4; i++) tmp2[i] = tmp[i];
+			for (int i=0; i<4; i++) tmp[i] = tmp2[(i + found_d) % 4];
+			int k = tmp[0]; tmp[0] = tmp[5]; tmp[5] = k;
+			k = tmp[1]; tmp[1] = tmp[2]; tmp[2] = k;
+		}
+		// adjust if D corners are swapped, then AUF
+		if (tmp[4] == 5 && tmp[5] == 4) {
+			tmp[4] = 4; tmp[5] = 5;
+			int k = tmp[0]; tmp[0] = tmp[2]; tmp[2] = k;
+		}
+		int found_u = -1;
+		for (int i=0; i<4; i++) if(tmp[i]==0) found_u = i;
+		if (found_u > -1) {
+			int tmp2[4];
+			for (int i=0; i<4; i++) tmp2[i] = tmp[i];
+			for (int i=0; i<4; i++) tmp[i] = tmp2[(i + found_u) % 4];
+		}
+		if (tmp[0] == 0 && tmp[1] == 1 && tmp[2] == 2 && tmp[3] == 3 && tmp[4] == 4 && tmp[5] == 5) return true;
+		return false;
 	}
 };
 
@@ -1152,6 +1247,8 @@ int main(int argc, char* argv[]){
 			return show(2);
 		}
 	}
+	
+	if (twoGen == 2 && keepCubeShape) return show(18);
 
 	FullPosition p;
 	std::ifstream is;
@@ -1215,7 +1312,7 @@ int main(int argc, char* argv[]){
 					continue;
 				}
 			}else{
-				p.random(twoGen);
+				p.random(twoGen, keepCubeShape);
 			}
 		}
 		if( ignoreMid ) p.middle=0;
