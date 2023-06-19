@@ -521,6 +521,41 @@ public:
 		}
 		return(p);
 	}
+	bool getCSParity(){
+		// get the speedsolving-style parity, assuming we're in cube shape
+		int swaps=0;
+		int tmp[16];
+		int ep=8, cp=0;
+		for (int j=0; j<24; j++) {
+			if (pos[j] < 8) {
+				tmp[cp] = pos[j];
+				cp++;
+			} else {
+				tmp[ep] = pos[j];
+				ep++;
+			}
+			if (pos[j]<8) j++;
+		}
+		// adjust for AUF
+		if (pos[0] >= 8) swaps++;
+		if (pos[12] < 8) swaps++;
+		for (int i=0; i<16; i++) {
+			if (tmp[i] != i) {
+				int other_idx = i;
+				for (int j=i; j<16; j++) {
+					if (tmp[j] == i) {
+						other_idx = j;
+						break;
+					}
+				}
+				int k = tmp[i];
+				tmp[i] = tmp[other_idx];
+				tmp[other_idx] = k;
+				swaps++;
+			}
+		}
+		return (swaps%2)==1;
+	}
 	int getEdgeColouring(int cl){
 		const int clp[3][4]={ { 8, 9,10,11}, { 8, 9,13,14}, {15,14,10, 9} };
 		int c=0;
@@ -958,6 +993,7 @@ public:
 		}
 		if (keepCubeShape) {
 			// check that it's in cube shape
+			std::cout << "\nParity " << fp.getCSParity() << "\n";
 			std::cout << shp << " " << shp2 << "\n";
 			if (!((shp==5052 || shp==4148 || shp==5039 || shp==4163) && (shp2==5052 || shp2==4148 || shp2==5039 || shp2==4163))) {
 				return 19;
