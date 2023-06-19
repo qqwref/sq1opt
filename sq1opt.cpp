@@ -33,6 +33,7 @@ const char* errors[]={
 	"Twist / expected.",//16
 	"Position string has too many copies of a piece.",//17
 	"Can't stay in cube shape and also use 2gen.",//18
+	"Position can't be solved with these constraints",//19
 };
 
 int verbosity = 5;
@@ -371,8 +372,8 @@ public:
 
 // FullPosition holds position with each piece individually specified.
 class FullPosition {
-	int pos[24];
 public:
+	int pos[24];
 	int middle;
 	FullPosition(){ reset(); }
 	void reset(){
@@ -885,10 +886,11 @@ public:
 };
 
 
-// SimpPosition holds position encoded by colourings
-class SimpPosition {
+// PositionSolver holds position encoded by colourings
+class PositionSolver {
 	int e0,e1,e2,c0,c1,c2;
 	int shp,shp2,middle;
+	FullPosition fp;
 	ShapeTranTable& stt;
 	ShpColTranTable& scte;
 	ShpColTranTable& sctc;
@@ -903,7 +905,7 @@ class SimpPosition {
 	bool ignoreTrans;
 
 public:
-	SimpPosition( ShapeTranTable& stt0, ShpColTranTable& scte0, ShpColTranTable& sctc0, PrunTable& pr10, PrunTable& pr20 )
+	PositionSolver( ShapeTranTable& stt0, ShpColTranTable& scte0, ShpColTranTable& sctc0, PrunTable& pr10, PrunTable& pr20 )
 		: stt(stt0), scte(scte0), sctc(sctc0), pr1(pr10), pr2(pr20) {};
 	void set(FullPosition& p, bool turnMetric0, bool findAll0, bool ignoreTrans0){
 		c0=sctc.ct.choice2Idx[p.getCornerColouring(0)];
@@ -918,6 +920,7 @@ public:
 		turnMetric=turnMetric0;
 		findAll=findAll0;
 		ignoreTrans=ignoreTrans0;
+		fp = p;
 	};
 	inline int doMove(int m){
 		const int mirrmv[3]={1,0,2};
@@ -940,7 +943,32 @@ public:
 		shp2 = stt.tranTable[shp2][mirrmv[m]];
 		return r;
 	}
-	void solve(int twoGen, int extraMoves, bool keepCubeShape){
+	int solve(int twoGen, int extraMoves, bool keepCubeShape){
+		// check that the given position is solvable with these constraints
+		if (twoGen == 2) {
+			// check that 7G8H are solved
+			if (fp.pos[18] != 14 || fp.pos[19] != 6 || fp.pos[20] != 6 || fp.pos[21] != 15 || fp.pos[22] != 7 || fp.pos[23] != 7) return 19;
+		} else if (twoGen == 1) {
+			// check that G8H are solved or solved-and-ADF
+			if (fp.pos[19] == 6 && fp.pos[20] == 6 && fp.pos[21] == 15 && fp.pos[22] == 7 && fp.pos[23] == 7) {
+				// ok
+			} else if (fp.pos[18] == 6 && fp.pos[19] == 6 && fp.pos[20] == 15 && fp.pos[21] == 7 && fp.pos[22] == 7) {
+				// ok
+			} else return 19;
+		}
+		if (keepCubeShape) {
+			// check that it's in cube shape
+			std::cout << shp << " " << shp2 << "\n";
+			if (!((shp==5052 || shp==4148 || shp==5039 || shp==4163) && (shp2==5052 || shp2==4148 || shp2==5039 || shp2==4163))) {
+				return 19;
+			}
+			if (twoGen == 1) {
+				// check that the corners are 2genable
+				if (!fp.has2GenCorners()) return 19;
+			}
+		}
+		
+		// run the solve
 		moveLen=0;
 		unsigned long nodes=0;
 		// only even lengths if twist metric and middle is square
@@ -959,6 +987,7 @@ public:
 				if (l >= optimalMoves + extraMoves || (!turnMetric && middle!=0 && l+1 >= optimalMoves + extraMoves)) break;
 			}
 		};
+		return 0;
 	}
 	int search( const int l, const int lm, unsigned long *nodes, int twoGen, bool keepCubeShape){
 		int i,r=0;
@@ -1053,7 +1082,7 @@ public:
 			lastTurns[4]=0;
 			lastTurns[5]=0;
 			doMove(2);
-			if (!keepCubeShape || ((shp==5052 || shp==4148) && (shp2==5052 || shp2==4148))) {
+			if (!keepCubeShape || ((shp==5052 || shp==4148 || shp==5039 || shp==4163) && (shp2==5052 || shp2==4148 || shp2==5039 || shp2==4163))) {
 				moveList[moveLen++]=0;
 				r+=search(l-1, 2, nodes, twoGen, keepCubeShape);
 				moveLen--;
@@ -1283,7 +1312,7 @@ int main(int argc, char* argv[]){
 	if(verbosity>=4) std::cout << "  1. Colouring 2 pruning table"<<std::endl;
 	PrunTable pr2(q, 1, st,scte,sctc, turnMetric );
 	if(verbosity>=4) std::cout << "  0. Finished."<<std::endl;
-	SimpPosition s( st, scte, sctc, pr1, pr2 );
+	PositionSolver s( st, scte, sctc, pr1, pr2 );
 
 	if(verbosity>=2){
 		std::cout<<"Flags: "<<(turnMetric? "Turn":"Twist")<<" Metric, ";
@@ -1328,7 +1357,8 @@ int main(int argc, char* argv[]){
 		s.set(p, turnMetric, findAll, ignoreTrans);
 
 		//solve position
-		s.solve(twoGen, extraMoves, keepCubeShape);
+		int r = s.solve(twoGen, extraMoves, keepCubeShape);
+		if (r) show(r);
 		std::cout<<std::endl;
 	}while( posArg<0 && ( (inpFile!=NULL && !is.eof() ) || (inpFile==NULL && (numpos==0 || numpos-- > 1)) ));
 
