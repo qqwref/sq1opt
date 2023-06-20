@@ -14,6 +14,13 @@
 #define FILEP1W  "sq1p1w.dat"
 #define FILEP2W  "sq1p2w.dat"
 
+#define CORNER_UP -3
+#define CORNER_DOWN -2
+#define CORNER_ANY -1
+#define EDGE_UP 16
+#define EDGE_DOWN 17
+#define EDGE_ANY 18
+
 const char* errors[]={
 	"Unrecognised command line switch.", //1
 	"Too many command line arguments.",
@@ -383,7 +390,13 @@ public:
 	}
 	void print(){
 		for(int i=0; i<24; i++){
-			std::cout<<"ABCDEFGH12345678"[pos[i]];
+			if (pos[i] < 0) {
+				std::cout<<"UWV"[(-pos[i])%3];
+			} else if (pos[i] > 15) {
+				std::cout<<"XYZ"[pos[i]%3];
+			} else {
+				std::cout<<"ABCDEFGH12345678"[pos[i]];
+			}
 			if( pos[i]<8 ) i++;
 		}
 		std::cout<<"/ -"[middle+1];
@@ -471,6 +484,7 @@ public:
 		middle=m;
 	};
 	void doTop(int m){
+		//std::cout << "doTop " << m << "\n";
 		m%=12;
 		if(m<0)m+=12;
 		while(m>0){
@@ -481,6 +495,7 @@ public:
 		}
 	}
 	void doBot(int m){
+		//std::cout << "doBot " << m << "\n";
 		m%=12;
 		if(m<0)m+=12;
 		while(m>0){
@@ -491,7 +506,15 @@ public:
 		}
 	}
 	bool doTwist(){
-		if( !isTwistable() ) return false;
+		//std::cout << "doTwist\n";
+		if( !isTwistable() ) {
+			//std::cout<<"twist failed: ";
+			//for (int i=0; i<24; i++) {
+			//	std::cout << pos[i] << " ";
+			//}
+			//std::cout << "\n";
+			return false;
+		}
 		for(int i=6;i<12;i++){
 			int c=pos[i];
 			pos[i]=pos[i+6];
@@ -524,29 +547,34 @@ public:
 	int getEdgeColouring(int cl){
 		const int clp[3][4]={ { 8, 9,10,11}, { 8, 9,13,14}, {15,14,10, 9} };
 		int c=0;
+		int cnt=0;
 		int m=(cl!=2)?1<<7:1;
 		for(int i=0; i<24; i++){
 			if( pos[i]>=8 ){
 				for(int j=0; j<4; j++){
-					if( pos[i]==clp[cl][j] ){
+					if( pos[i]==clp[cl][j] || (pos[i]>15 && pos[i]%3==0 && cl==0)) { // edge up
 						c|=m;
+						cnt++;
 						break;
 					}
 				}
 				if(cl!=2) m>>=1; else m<<=1;
 			}
 		}
-		return(c);
+		if (cnt==4) return c;
+		else return -1;
 	}
 	int getCornerColouring(int cl){
 		const int clp[3][4]={ {0,1,2,3}, {0,1,5,6}, {7,6,2,1} };
 		int c=0;
+		int cnt=0;
 		int m=(cl!=2)?1<<7:1;
 		for(int i=0; i<24; i++){
 			if( pos[i]<8 ){
 				for(int j=0; j<4; j++){
-					if( pos[i]==clp[cl][j] ){
+					if( pos[i]==clp[cl][j] || (pos[i]<0 && pos[i]%3==0 && cl==0)) { // corner up
 						c|=m;
+						cnt++;
 						break;
 					}
 				}
@@ -554,7 +582,8 @@ public:
 				i++;
 			}
 		}
-		return(c);
+		if (cnt==4) return c;
+		else return -1;
 	}
 	bool parseNumberForward(const char*inp, int& ix, int& num){
 		bool min = false;
@@ -598,7 +627,7 @@ public:
 		while(*t){
 			if( *t == ',' || *t == '(' || *t == ')' || *t == '9' || *t == '0' ){
 				f|=1; // cannot be position string, but may be movelist
-			}else if( (*t>='a' && *t<='h') || (*t>='A' && *t<='H') ){
+			}else if( (*t>='a' && *t<='h') || (*t>='A' && *t<='H') || (*t>='u' && *t<='z') || (*t>='U' && *t<='Z') ){
 				f|=2; // cannot be movelist, but may be position string
 			}else if( *t!='/' && *t!='-' && (*t<'1' || *t>'8') ){
 				f|=3; // cannot be either
@@ -684,23 +713,47 @@ public:
 		}else{
 			// position
 			if( strlen(inp)!=16 && strlen(inp)!=17 ) return(9);
-			int pieceCount[16];
+			int pieceCount[16]; // track counts of each piece, so we don't have multiple of one piece
+			int cecount[6]; // track total up/down/all corners/edges
 			for (int i=0; i<16; i++) pieceCount[i] = 0;
+			for (int i=0; i<6; i++) cecount[i] = 0;
 			int j=0;
 			int pi[24];
+			int nextPartialCorner = -3;
+			int nextPartialEdge = 18;
 			for( int i=0; i<16; i++){
 				int k=inp[i];
-				if(k>='a' && k<='h') k-='a';
-				else if(k>='A' && k<='H') k-='A';
+				if(k>='a' && k<='z') k+=('A'-'a');
+				if(k>='A' && k<='H') k-='A';
 				else if(k>='1' && k<='8') k-='1'-8;
+				else if(k>='U' && k<='W') {
+					// 'U' becomes nPC, 'V' becomes nPC+1, 'W' becomes nPC+2
+					k+=(nextPartialCorner-'U');
+					nextPartialCorner -= 3;
+				}
+				else if(k>='X' && k<='Z') {
+					// 'X' becomes nPE, 'Y' becomes nPE+1, 'Z' becomes nPE+2
+					k+=(nextPartialEdge-'X');
+					nextPartialEdge += 3;
+				}
 				else return(10);
 				pi[j++] = k;
-				pieceCount[k]++;
-				if( k<8) pi[j++] = k;
+				if (k>=0 && k<=15) pieceCount[k]++;
+				if (k<8) {
+					pi[j++] = k;
+					cecount[2]++;
+					if ((k<0 && k%3==0) || (k>=0 && k<=3)) cecount[0]++; // corner up
+					if ((k<0 && k%3==-2) || (k>=4 && k<=7)) cecount[1]++; // corner down
+				} else {
+					cecount[5]++;
+					if ((k>15 && k%3==0) || (k>=8 && k<=11)) cecount[3]++; // edge up
+					if ((k>15 && k%3==1) || (k>=12 && k<=15)) cecount[4]++; // edge down
+				}
 			}
 			for (int i=0; i<16; i++) {
 				if (pieceCount[i] > 1) return(17);
 			}
+			if (cecount[0] > 4 || cecount[1] > 4 || cecount[2] > 8 || cecount[3] > 4 || cecount[4] > 4 || cecount[5] > 8) return 17;
 			int midLayer=0;
 			if( strlen(inp)==17 ){
 				int k=inp[16];
@@ -708,6 +761,12 @@ public:
 				midLayer = (k=='-') ? 1 : -1;
 			}
 			set(pi,midLayer);
+			
+			// print it
+			//for (int i=0; i<24; i++) {
+			//	std::cout << pi[i] << " ";
+			//}
+			//std::cout << "\n";
 		}
 		return(0);
 	}
@@ -756,6 +815,43 @@ public:
 		}
 		if (tmp[0] == 0 && tmp[1] == 1 && tmp[2] == 2 && tmp[3] == 3 && tmp[4] == 4 && tmp[5] == 5) return true;
 		return false;
+	}
+	bool matchesSolved() {
+		int solved[24] = {0, 0, 8, 1, 1, 9, 2, 2, 10, 3, 3, 11, 12, 4, 4, 13, 5, 5, 14, 6, 6, 15, 7, 7};
+		/*for (int i=0; i<24; i++) {
+			if (pos[i] == solved[i]) continue;
+			if (pos[i] == EDGE_UP && solved[i] >= 8 && solved[i] <= 11) continue;
+			if (pos[i] == EDGE_DOWN && solved[i] >= 12 && solved[i] <= 15) continue;
+			if (pos[i] == CORNER_UP && solved[i] >= 0 && solved[i] <= 3) continue;
+			if (pos[i] == CORNER_DOWN && solved[i] >= 4 && solved[i] <= 7) continue;
+			if (pos[i] == EDGE_ANY && solved[i] >= 8 && solved[i] <= 15) continue;
+			if (pos[i] == -1 && solved[i] >= 0 && solved[i] <= 7) continue; // ?
+			std::cout << i << " " << pos[i] << " " << solved[i] << " FAILED\n";
+			return false;
+			// sq1opt.exe A1B2WXU4EZF7VYH5 -g -w -a
+		}*/
+		//for (int i=0; i<24; i++) {
+		//	std::cout << pos[i] << " ";
+		//}
+		//std::cout <<"\n";
+		int bad = 0;
+		for (int i=0; i<24; i++) {
+			if (pos[i] == solved[i]) continue;
+			if (pos[i]>15 && pos[i]%3==0 && solved[i] >= 8 && solved[i] <= 11) continue; // edge up
+			if (pos[i]>15 && pos[i]%3==1 && solved[i] >= 12 && solved[i] <= 15) continue; // edge down
+			if (pos[i]<0 && pos[i]%3==0 && solved[i] >= 0 && solved[i] <= 3) continue; // corner up
+			if (pos[i]<0 && pos[i]%3==-2 && solved[i] >= 4 && solved[i] <= 7) continue; // corner down
+			if (pos[i]>15 && pos[i]%3==2 && solved[i] >= 8 && solved[i] <= 15) continue; // edge any
+			if (pos[i]<0 && pos[i]%3==-1 && solved[i] >= 0 && solved[i] <= 7) continue; // corner any
+			//std::cout << "1";
+			bad++;
+			//return false;
+			// sq1opt.exe A1B2WXU4EZF7VYH5 -g -w -a
+			// sq1opt.exe A1B2UXD4E6F7VYWZ -g -w
+			// sq1opt.exe A1B2UXW4E6F7VYWZ -g -w
+		}
+		//std::cout<<"\n";
+		return bad==0;
 	}
 };
 
@@ -957,8 +1053,7 @@ public:
 			} else return 19;
 		}
 		if (keepCubeShape) {
-			// check that it's in cube shape
-			std::cout << shp << " " << shp2 << "\n";
+			// check that it's in cube shape and of the right parity
 			if (!((shp==5052 || shp==4148 || shp==5039 || shp==4163) && (shp2==5052 || shp2==4148 || shp2==5039 || shp2==4163))) {
 				return 19;
 			}
@@ -1030,6 +1125,293 @@ public:
 		if( pr1.table[shp ][e0][c0]>l+1 ) return(0);
 		if( pr2.table[shp ][e1][c1]>l+1 ) return(0);
 		if( pr2.table[shp2][e2][c2]>l+1 ) return(0);
+
+		// try all top layer moves
+		if( lm>=2 ){
+			i=doMove(0);
+			do{
+				// qq note: Jaap's solver pruned the transformation by only allowing U moves between
+				// 0 and 5. I think it's better to do this on D, see below. We then allow any (x,0).
+				//if( turnMetric || ignoreTrans || twoGen!=0 || i<6 || l<2 ){
+				moveList[moveLen++]=i;
+				lastTurns[4]=i;
+				r+=search( turnMetric?l-1:l, 0, nodes, twoGen, keepCubeShape);
+				moveLen--;
+				if(r!=0 && !findAll) return(r);
+				//}
+				i+=doMove(0);
+			}while( i<12);
+			lastTurns[4]=0;
+		}
+		// try all bot layer moves
+		if( lm!=1 && twoGen != 2){
+			i=doMove(1);
+			do{
+				// if we're allowed to use the transformation, and we're not doing any kind of
+				// 2gen, and we're not in the last two moves, then we should skip this move if the
+				// current (x,y) is worse than the alternative.
+				// the logic for that is: |x| + |y| >= 7, or |x| + |y| = 6 and |y| > |x|
+				int topMove = lastTurns[4];
+				int absTopMove = topMove>6 ? 12-topMove : topMove;
+				int absBottomMove = i>6 ? 12-i : i;
+				if (turnMetric || ignoreTrans || twoGen!=0 || l<2 || (absTopMove + absBottomMove < 6) || (absTopMove + absBottomMove == 6 && absTopMove >= absBottomMove)) {
+					moveList[moveLen++]=i+12;
+					lastTurns[5]=i;
+					if (twoGen != 1 || i==1 || i==11) {
+						r+=search( turnMetric?l-1:l, 1, nodes, twoGen, keepCubeShape);
+					}
+					moveLen--;
+					if(r!=0 && !findAll) return(r);
+				}
+				i+=doMove(1);
+			}while( i<12);
+			lastTurns[5]=0;
+		}
+		// try twist move
+		if( lm!=2 ){
+			int lt0=lastTurns[0], lt1=lastTurns[1];
+			lastTurns[0]=lastTurns[2];
+			lastTurns[1]=lastTurns[3];
+			lastTurns[2]=lastTurns[4];
+			lastTurns[3]=lastTurns[5];
+			lastTurns[4]=0;
+			lastTurns[5]=0;
+			doMove(2);
+			if (!keepCubeShape || ((shp==5052 || shp==4148 || shp==5039 || shp==4163) && (shp2==5052 || shp2==4148 || shp2==5039 || shp2==4163))) {
+				moveList[moveLen++]=0;
+				r+=search(l-1, 2, nodes, twoGen, keepCubeShape);
+				moveLen--;
+				if(r!=0 && !findAll) return(r);
+			}
+			doMove(2);
+			lastTurns[5]=lastTurns[3];
+			lastTurns[4]=lastTurns[2];
+			lastTurns[3]=lastTurns[1];
+			lastTurns[2]=lastTurns[0];
+			lastTurns[1]=lt1;
+			lastTurns[0]=lt0;
+		}
+		return r;
+	}
+
+	int normaliseMove(int m){
+		while(m<0) m+=12;
+		while(m>=12) m-=12;
+		if( usenegative && m>6 ) m-=12;
+		return m;
+	}
+	void printmove(int mu, int md){
+		if( mu!=0 || md!=0 ) {
+			if( usebrackets ) std::cout<<"(";
+			std::cout<<mu<<","<<md;
+			if( usebrackets ) std::cout<<")";
+		}
+	}
+	void printsol(){
+		int tw=0, tu=0;
+		int mu=0, md=0;
+		if( generator ){
+			for( int i=moveLen-1; i>=0; i--){
+				if( moveList[i]==0 ){
+					printmove(mu,md); mu = md = 0;
+					std::cout<<"/";
+					tu++; tw++;
+				}else if( moveList[i]<12 ){
+					mu = normaliseMove(mu-moveList[i]);
+					tu++;
+				}else{
+					md = normaliseMove(md+moveList[i]);
+					tu++;
+				}
+			}
+		}else{
+			for( int i=0; i<moveLen; i++){
+				if( moveList[i]==0 ){
+					printmove(mu,md); mu = md = 0;
+					std::cout<<"/";
+					tu++; tw++;
+				}else if( moveList[i]<12 ){
+					mu = normaliseMove(mu+moveList[i]);
+					tu++;
+				}else{
+					md = normaliseMove(md-moveList[i]);
+					tu++;
+				}
+			}
+		}
+		printmove(mu,md);
+		std::cout <<"  ["<<tw<<"|"<<tu<<"] "<<std::endl;
+	}
+};
+
+// PartialositionSolver is like PositionSolver but may have some incompletely defined pieces
+class PartialPositionSolver {
+	int e0,e1,e2,c0,c1,c2;
+	int shp,shp2,shpx,shpx2,middle; // two shapes to account for both possible parities
+	FullPosition fp;
+	ShapeTranTable& stt;
+	ShpColTranTable& scte;
+	ShpColTranTable& sctc;
+	PrunTable& pr1;
+	PrunTable& pr2;
+	//int pos[24];
+
+	int moveList[50];
+	int moveLen;
+	int lastTurns[6];
+	bool turnMetric;
+	bool findAll;
+	bool ignoreTrans;
+
+public:
+	PartialPositionSolver( ShapeTranTable& stt0, ShpColTranTable& scte0, ShpColTranTable& sctc0, PrunTable& pr10, PrunTable& pr20 )
+		: stt(stt0), scte(scte0), sctc(sctc0), pr1(pr10), pr2(pr20) {};
+	void set(FullPosition& p, bool turnMetric0, bool findAll0, bool ignoreTrans0){
+		// todo: for getCornerColouring/getEdgeColouring, it should return -1 if it doesn't find 4 things. and then, we should set the variable to -1.
+		//std::cout<<p.getCornerColouring(0)<<" "<<p.getCornerColouring(1)<<" "<<p.getCornerColouring(2)<<"\n";
+		//std::cout<<p.getEdgeColouring(0)<<" "<<p.getEdgeColouring(1)<<" "<<p.getEdgeColouring(2)<<"\n";
+		int cc0 = p.getCornerColouring(0);
+		int cc1 = p.getCornerColouring(1);
+		int cc2 = p.getCornerColouring(2);
+		c0 = (cc0==-1 ? -1 : sctc.ct.choice2Idx[cc0]);
+		c1 = (cc1==-1 ? -1 : sctc.ct.choice2Idx[cc1]);
+		c2 = (cc2==-1 ? -1 : sctc.ct.choice2Idx[cc2]);
+		int ec0 = p.getEdgeColouring(0);
+		int ec1 = p.getEdgeColouring(1);
+		int ec2 = p.getEdgeColouring(2);
+		e0 = (ec0==-1 ? -1 : scte.ct.choice2Idx[ec0]);
+		e1 = (ec1==-1 ? -1 : scte.ct.choice2Idx[ec1]);
+		e2 = (ec2==-1 ? -1 : scte.ct.choice2Idx[ec2]);
+		bool parity = p.getParityOdd();
+		shp = stt.getShape(p.getShape(),parity);
+		shpx = stt.getShape(p.getShape(),!parity);
+		shp2 = stt.tranTable[shp][3];
+		shpx2 = stt.tranTable[shpx][3];
+		middle = p.middle;
+		turnMetric=turnMetric0;
+		findAll=findAll0;
+		ignoreTrans=ignoreTrans0;
+		fp = p;
+		//for (int i=0; i<24; i++) pos[i] = fp.pos[i];
+	};
+	inline int doMove(int m){
+		const int mirrmv[3]={1,0,2};
+		int r=0;
+		if(m==0){
+			r=stt.getTopTurn(shp);
+			//std::cout << "doTop " << r << "\n";
+			fp.doTop(r);
+		}else if(m==1){
+			r=stt.getBotTurn(shp);
+			//std::cout << "doBot " << -r << "\n";
+			fp.doBot(-r);
+		}else{
+			middle=-middle;
+			//std::cout << "doTwist\n";
+			fp.doTwist();
+		}
+		// only update c0/c1/e0/e1/c2/e2 if they are not -1. also make sure to update pos
+		if (c0>-1) c0 = sctc.tranTable[shp][c0][m];
+		if (c1>-1) c1 = sctc.tranTable[shp][c1][m];
+		if (e0>-1) e0 = scte.tranTable[shp][e0][m];
+		if (e1>-1) e1 = scte.tranTable[shp][e1][m];
+		shp = stt.tranTable[shp][m];
+		shpx = stt.tranTable[shpx][m];
+
+		if (c2>-1) c2 = sctc.tranTable[shp2][c2][mirrmv[m]];
+		if (e2>-1) e2 = scte.tranTable[shp2][e2][mirrmv[m]];
+		shp2 = stt.tranTable[shp2][mirrmv[m]];
+		shpx2 = stt.tranTable[shpx2][mirrmv[m]];
+		return r;
+	}
+	int solve(int twoGen, int extraMoves, bool keepCubeShape){
+		// check that the given position is solvable with these constraints
+		if (twoGen == 2) {
+			// ?
+		} else if (twoGen == 1) {
+			// ?
+		}
+		if (keepCubeShape) {
+			// check that it's in cube shape and of the right parity
+			if (!((shp==5052 || shp==4148 || shp==5039 || shp==4163) && (shp2==5052 || shp2==4148 || shp2==5039 || shp2==4163))) {
+				return 19;
+			}
+			if (twoGen == 1) {
+				// ?
+			}
+		}
+		
+		// run the solve
+		moveLen=0;
+		unsigned long nodes=0;
+		// only even lengths if twist metric and middle is square
+		int l=-1;
+		if( !turnMetric && middle==1 ) l=-2;
+		// do ida
+		int optimalMoves = -1;
+		while(true){
+			l++;
+			//if (l>0) break;
+			if( !turnMetric && middle!=0 ) l++;
+			if(verbosity>=5) std::cout<<"searching depth "<<l<<std::endl<<std::flush;
+			for( int i=0; i<6; i++) lastTurns[i]=0;
+			int searchResult = search(l,3, &nodes, twoGen, keepCubeShape);
+			if (searchResult != 0) {
+				if (optimalMoves == -1) optimalMoves = l;
+				if (l >= optimalMoves + extraMoves || (!turnMetric && middle!=0 && l+1 >= optimalMoves + extraMoves)) break;
+			}
+		};
+		return 0;
+	}
+	int search( const int l, const int lm, unsigned long *nodes, int twoGen, bool keepCubeShape){
+		int i,r=0;
+
+		// search for l more moves. previous move was lm.
+		(*nodes)++;
+		if( l<0 ) return 0;
+
+		//prune based on transformation
+		// (a,b)/(c,d)/(e,f) -> (6+a,6+b)/(d,c)/(6+e,6+f)
+		// qq note: this step is only done for turn metric, because the pruning steps below are ignored
+		if( turnMetric && !ignoreTrans && twoGen == 0){
+			// (a,b)/(c,d)/(e,f) -> (6+a,6+b)/(d,c)/(6+e,6+f)
+			// moves changes by:
+			// a,b,e,f=0/6 -> m++/m--
+			i=0;
+			if( lastTurns[0]==0 ) i++;
+			else if( lastTurns[0]==6 ) i--;
+			if( lastTurns[1]==0 ) i++;
+			else if( lastTurns[1]==6 ) i--;
+			if( lastTurns[4]==0 ) i++;
+			else if( lastTurns[4]==6 ) i--;
+			if( lastTurns[5]==0 ) i++;
+			else if( lastTurns[5]==6 ) i--;
+			int absTopMove = lastTurns[0]>6 ? 12-lastTurns[0] : lastTurns[0];
+			int absBottomMove = lastTurns[1]>6 ? 12-lastTurns[1] : lastTurns[1];
+			if( i<0 || ( i==0 && ((absTopMove + absBottomMove > 6) || (absTopMove + absBottomMove == 6 && absTopMove < absBottomMove)))) return 0;
+		}
+
+		// check if it is now solved
+		// instead of this, we should check if the position vector matches what we expect. we can still check shp though.
+		if( l==0 ){
+			if (fp.matchesSolved() && middle>=0) {
+				printsol();
+				if(verbosity>=6) std::cout<<"Nodes="<<*nodes<<std::endl<<std::flush;
+				return 1;
+			}else if( turnMetric ) return 0;
+		}
+
+		// prune
+		// but only do this if e0/c0/e1/c1/e2/c2 are not -1
+		if (e0>-1 && c0>-1) {
+			if( pr1.table[shp ][e0][c0]>l+1 && pr1.table[shpx][e0][c0]>l+1) return(0);
+		}
+		if (e1>-1 && c1>-1) {
+			if( pr2.table[shp ][e1][c1]>l+1 && pr2.table[shpx][e1][c1]>l+1) return(0);
+		}
+		if (e2>-1 && c2>-1) {
+			if( pr2.table[shp2][e2][c2]>l+1 && pr2.table[shpx2][e2][c2]>l+1) return(0);
+		}
 
 		// try all top layer moves
 		if( lm>=2 ){
@@ -1312,7 +1694,8 @@ int main(int argc, char* argv[]){
 	if(verbosity>=4) std::cout << "  1. Colouring 2 pruning table"<<std::endl;
 	PrunTable pr2(q, 1, st,scte,sctc, turnMetric );
 	if(verbosity>=4) std::cout << "  0. Finished."<<std::endl;
-	PositionSolver s( st, scte, sctc, pr1, pr2 );
+	//PositionSolver s( st, scte, sctc, pr1, pr2 );
+	PartialPositionSolver s( st, scte, sctc, pr1, pr2 );
 
 	if(verbosity>=2){
 		std::cout<<"Flags: "<<(turnMetric? "Turn":"Twist")<<" Metric, ";
