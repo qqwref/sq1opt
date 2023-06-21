@@ -14,13 +14,6 @@
 #define FILEP1W  "sq1p1w.dat"
 #define FILEP2W  "sq1p2w.dat"
 
-#define CORNER_UP -3
-#define CORNER_DOWN -2
-#define CORNER_ANY -1
-#define EDGE_UP 16
-#define EDGE_DOWN 17
-#define EDGE_ANY 18
-
 const char* errors[]={
 	"Unrecognised command line switch.", //1
 	"Too many command line arguments.",
@@ -378,6 +371,11 @@ public:
 };
 
 // FullPosition holds position with each piece individually specified.
+// Pieces 0-7 are corners and appear twice in a row. Pieces 8-15 are edges and appear once
+// Piece numbers below 0 are partially specified corners. Based on the value modulo 3, it's a
+//  top corner (0), bottom corner (-2), or any corner (-1).
+// Piece numbers above 15 are partially specified edges. Based on the value modulo 3, it's
+//  top edge (0), bottom edge (1), or any edge (2).
 class FullPosition {
 public:
 	int pos[24];
@@ -484,7 +482,6 @@ public:
 		middle=m;
 	};
 	void doTop(int m){
-		//std::cout << "doTop " << m << "\n";
 		m%=12;
 		if(m<0)m+=12;
 		while(m>0){
@@ -495,7 +492,6 @@ public:
 		}
 	}
 	void doBot(int m){
-		//std::cout << "doBot " << m << "\n";
 		m%=12;
 		if(m<0)m+=12;
 		while(m>0){
@@ -506,15 +502,7 @@ public:
 		}
 	}
 	bool doTwist(){
-		//std::cout << "doTwist\n";
-		if( !isTwistable() ) {
-			//std::cout<<"twist failed: ";
-			//for (int i=0; i<24; i++) {
-			//	std::cout << pos[i] << " ";
-			//}
-			//std::cout << "\n";
-			return false;
-		}
+		if( !isTwistable() ) return false;
 		for(int i=6;i<12;i++){
 			int c=pos[i];
 			pos[i]=pos[i+6];
@@ -713,12 +701,14 @@ public:
 		}else{
 			// position
 			if( strlen(inp)!=16 && strlen(inp)!=17 ) return(9);
-			int pieceCount[16]; // track counts of each piece, so we don't have multiple of one piece
-			int cecount[6]; // track total up/down/all corners/edges
+			int pieceCount[16]; // track counts of each piece, so we can detect multiples of one piece
+			int cecount[6]; // track total [up, down, all] + 3*[corners, edges]
 			for (int i=0; i<16; i++) pieceCount[i] = 0;
 			for (int i=0; i<6; i++) cecount[i] = 0;
 			int j=0;
 			int pi[24];
+			// we can't reuse a piece number because two of the same number means a corner, so
+			// each partially defined piece gets a separate set of 3 possible values
 			int nextPartialCorner = -3;
 			int nextPartialEdge = 18;
 			for( int i=0; i<16; i++){
@@ -727,12 +717,10 @@ public:
 				if(k>='A' && k<='H') k-='A';
 				else if(k>='1' && k<='8') k-='1'-8;
 				else if(k>='U' && k<='W') {
-					// 'U' becomes nPC, 'V' becomes nPC+1, 'W' becomes nPC+2
 					k+=(nextPartialCorner-'U');
 					nextPartialCorner -= 3;
 				}
 				else if(k>='X' && k<='Z') {
-					// 'X' becomes nPE, 'Y' becomes nPE+1, 'Z' becomes nPE+2
 					k+=(nextPartialEdge-'X');
 					nextPartialEdge += 3;
 				}
@@ -761,18 +749,11 @@ public:
 				midLayer = (k=='-') ? 1 : -1;
 			}
 			set(pi,midLayer);
-			
-			// print it
-			//for (int i=0; i<24; i++) {
-			//	std::cout << pi[i] << " ";
-			//}
-			//std::cout << "\n";
 		}
 		return(0);
 	}
+	// assuming we're in a square/square shape, check if the corners are solvable with 2gen
 	bool has2GenCorners(){
-		// we should check that shape is square/square
-		
 		// get corners
 		int tmp[6];
 		int j=0;
@@ -816,42 +797,28 @@ public:
 		if (tmp[0] == 0 && tmp[1] == 1 && tmp[2] == 2 && tmp[3] == 3 && tmp[4] == 4 && tmp[5] == 5) return true;
 		return false;
 	}
+	bool singleMatch(int posI, int solvedI) {
+		if (posI == solvedI) return true;
+		if (posI>15 && posI%3==0  && solvedI >= 8  && solvedI <= 11) return true; // edge up
+		if (posI>15 && posI%3==1  && solvedI >= 12 && solvedI <= 15) return true; // edge down
+		if (posI<0  && posI%3==0  && solvedI >= 0  && solvedI <= 3)  return true; // corner up
+		if (posI<0  && posI%3==-2 && solvedI >= 4  && solvedI <= 7)  return true; // corner down
+		if (posI>15 && posI%3==2  && solvedI >= 8  && solvedI <= 15) return true; // edge any
+		if (posI<0  && posI%3==-1 && solvedI >= 0  && solvedI <= 7)  return true; // corner any
+		return false;
+	}
 	bool matchesSolved() {
 		int solved[24] = {0, 0, 8, 1, 1, 9, 2, 2, 10, 3, 3, 11, 12, 4, 4, 13, 5, 5, 14, 6, 6, 15, 7, 7};
-		/*for (int i=0; i<24; i++) {
-			if (pos[i] == solved[i]) continue;
-			if (pos[i] == EDGE_UP && solved[i] >= 8 && solved[i] <= 11) continue;
-			if (pos[i] == EDGE_DOWN && solved[i] >= 12 && solved[i] <= 15) continue;
-			if (pos[i] == CORNER_UP && solved[i] >= 0 && solved[i] <= 3) continue;
-			if (pos[i] == CORNER_DOWN && solved[i] >= 4 && solved[i] <= 7) continue;
-			if (pos[i] == EDGE_ANY && solved[i] >= 8 && solved[i] <= 15) continue;
-			if (pos[i] == -1 && solved[i] >= 0 && solved[i] <= 7) continue; // ?
-			std::cout << i << " " << pos[i] << " " << solved[i] << " FAILED\n";
-			return false;
-			// sq1opt.exe A1B2WXU4EZF7VYH5 -g -w -a
-		}*/
-		//for (int i=0; i<24; i++) {
-		//	std::cout << pos[i] << " ";
-		//}
-		//std::cout <<"\n";
-		int bad = 0;
 		for (int i=0; i<24; i++) {
-			if (pos[i] == solved[i]) continue;
-			if (pos[i]>15 && pos[i]%3==0 && solved[i] >= 8 && solved[i] <= 11) continue; // edge up
-			if (pos[i]>15 && pos[i]%3==1 && solved[i] >= 12 && solved[i] <= 15) continue; // edge down
-			if (pos[i]<0 && pos[i]%3==0 && solved[i] >= 0 && solved[i] <= 3) continue; // corner up
-			if (pos[i]<0 && pos[i]%3==-2 && solved[i] >= 4 && solved[i] <= 7) continue; // corner down
-			if (pos[i]>15 && pos[i]%3==2 && solved[i] >= 8 && solved[i] <= 15) continue; // edge any
-			if (pos[i]<0 && pos[i]%3==-1 && solved[i] >= 0 && solved[i] <= 7) continue; // corner any
-			//std::cout << "1";
-			bad++;
-			//return false;
-			// sq1opt.exe A1B2WXU4EZF7VYH5 -g -w -a
-			// sq1opt.exe A1B2UXD4E6F7VYWZ -g -w
-			// sq1opt.exe A1B2UXW4E6F7VYWZ -g -w
+			if (!singleMatch(pos[i], solved[i])) return false;
 		}
-		//std::cout<<"\n";
-		return bad==0;
+		return true;
+	}
+	bool isPartial() {
+		for (int i=0; i<24; i++) {
+			if (pos[i] < 0 || pos[i] > 15) return true;
+		}
+		return false;
 	}
 };
 
@@ -984,6 +951,7 @@ public:
 
 // PositionSolver holds position encoded by colourings
 class PositionSolver {
+	public:
 	int e0,e1,e2,c0,c1,c2;
 	int shp,shp2,middle;
 	FullPosition fp;
@@ -1000,16 +968,21 @@ class PositionSolver {
 	bool findAll;
 	bool ignoreTrans;
 
-public:
 	PositionSolver( ShapeTranTable& stt0, ShpColTranTable& scte0, ShpColTranTable& sctc0, PrunTable& pr10, PrunTable& pr20 )
 		: stt(stt0), scte(scte0), sctc(sctc0), pr1(pr10), pr2(pr20) {};
 	void set(FullPosition& p, bool turnMetric0, bool findAll0, bool ignoreTrans0){
-		c0=sctc.ct.choice2Idx[p.getCornerColouring(0)];
-		c1=sctc.ct.choice2Idx[p.getCornerColouring(1)];
-		c2=sctc.ct.choice2Idx[p.getCornerColouring(2)];
-		e0=scte.ct.choice2Idx[p.getEdgeColouring(0)];
-		e1=scte.ct.choice2Idx[p.getEdgeColouring(1)];
-		e2=scte.ct.choice2Idx[p.getEdgeColouring(2)];
+		int cc0 = p.getCornerColouring(0);
+		int cc1 = p.getCornerColouring(1);
+		int cc2 = p.getCornerColouring(2);
+		c0 = (cc0==-1 ? -1 : sctc.ct.choice2Idx[cc0]);
+		c1 = (cc1==-1 ? -1 : sctc.ct.choice2Idx[cc1]);
+		c2 = (cc2==-1 ? -1 : sctc.ct.choice2Idx[cc2]);
+		int ec0 = p.getEdgeColouring(0);
+		int ec1 = p.getEdgeColouring(1);
+		int ec2 = p.getEdgeColouring(2);
+		e0 = (ec0==-1 ? -1 : scte.ct.choice2Idx[ec0]);
+		e1 = (ec1==-1 ? -1 : scte.ct.choice2Idx[ec1]);
+		e2 = (ec2==-1 ? -1 : scte.ct.choice2Idx[ec2]);
 		shp = stt.getShape(p.getShape(),p.getParityOdd());
 		shp2 = stt.tranTable[shp][3];
 		middle = p.middle;
@@ -1245,72 +1218,33 @@ public:
 };
 
 // PartialositionSolver is like PositionSolver but may have some incompletely defined pieces
-class PartialPositionSolver {
-	int e0,e1,e2,c0,c1,c2;
-	int shp,shp2,shpx,shpx2,middle; // two shapes to account for both possible parities
-	FullPosition fp;
-	ShapeTranTable& stt;
-	ShpColTranTable& scte;
-	ShpColTranTable& sctc;
-	PrunTable& pr1;
-	PrunTable& pr2;
-	//int pos[24];
-
-	int moveList[50];
-	int moveLen;
-	int lastTurns[6];
-	bool turnMetric;
-	bool findAll;
-	bool ignoreTrans;
+class PartialPositionSolver : public PositionSolver {
+	int shpx, shpx2; // extra shapes to account for both possible parities
 
 public:
 	PartialPositionSolver( ShapeTranTable& stt0, ShpColTranTable& scte0, ShpColTranTable& sctc0, PrunTable& pr10, PrunTable& pr20 )
-		: stt(stt0), scte(scte0), sctc(sctc0), pr1(pr10), pr2(pr20) {};
+	    : PositionSolver(stt0, scte0, sctc0, pr10, pr20) {}
+		//,stt(stt0), scte(scte0), sctc(sctc0), pr1(pr10), pr2(pr20) {};
+	//	: stt(stt0), scte(scte0), sctc(sctc0), pr1(pr10), pr2(pr20) {};
 	void set(FullPosition& p, bool turnMetric0, bool findAll0, bool ignoreTrans0){
-		// todo: for getCornerColouring/getEdgeColouring, it should return -1 if it doesn't find 4 things. and then, we should set the variable to -1.
-		//std::cout<<p.getCornerColouring(0)<<" "<<p.getCornerColouring(1)<<" "<<p.getCornerColouring(2)<<"\n";
-		//std::cout<<p.getEdgeColouring(0)<<" "<<p.getEdgeColouring(1)<<" "<<p.getEdgeColouring(2)<<"\n";
-		int cc0 = p.getCornerColouring(0);
-		int cc1 = p.getCornerColouring(1);
-		int cc2 = p.getCornerColouring(2);
-		c0 = (cc0==-1 ? -1 : sctc.ct.choice2Idx[cc0]);
-		c1 = (cc1==-1 ? -1 : sctc.ct.choice2Idx[cc1]);
-		c2 = (cc2==-1 ? -1 : sctc.ct.choice2Idx[cc2]);
-		int ec0 = p.getEdgeColouring(0);
-		int ec1 = p.getEdgeColouring(1);
-		int ec2 = p.getEdgeColouring(2);
-		e0 = (ec0==-1 ? -1 : scte.ct.choice2Idx[ec0]);
-		e1 = (ec1==-1 ? -1 : scte.ct.choice2Idx[ec1]);
-		e2 = (ec2==-1 ? -1 : scte.ct.choice2Idx[ec2]);
-		bool parity = p.getParityOdd();
-		shp = stt.getShape(p.getShape(),parity);
-		shpx = stt.getShape(p.getShape(),!parity);
-		shp2 = stt.tranTable[shp][3];
+		PositionSolver::set(p, turnMetric0, findAll0, ignoreTrans0);
+		shpx = stt.getShape(p.getShape(),!p.getParityOdd());
 		shpx2 = stt.tranTable[shpx][3];
-		middle = p.middle;
-		turnMetric=turnMetric0;
-		findAll=findAll0;
-		ignoreTrans=ignoreTrans0;
-		fp = p;
-		//for (int i=0; i<24; i++) pos[i] = fp.pos[i];
 	};
 	inline int doMove(int m){
 		const int mirrmv[3]={1,0,2};
 		int r=0;
 		if(m==0){
 			r=stt.getTopTurn(shp);
-			//std::cout << "doTop " << r << "\n";
 			fp.doTop(r);
 		}else if(m==1){
 			r=stt.getBotTurn(shp);
-			//std::cout << "doBot " << -r << "\n";
 			fp.doBot(-r);
 		}else{
 			middle=-middle;
-			//std::cout << "doTwist\n";
 			fp.doTwist();
 		}
-		// only update c0/c1/e0/e1/c2/e2 if they are not -1. also make sure to update pos
+		// only update c0/c1/e0/e1/c2/e2 if they are not -1
 		if (c0>-1) c0 = sctc.tranTable[shp][c0][m];
 		if (c1>-1) c1 = sctc.tranTable[shp][c1][m];
 		if (e0>-1) e0 = scte.tranTable[shp][e0][m];
@@ -1327,17 +1261,26 @@ public:
 	int solve(int twoGen, int extraMoves, bool keepCubeShape){
 		// check that the given position is solvable with these constraints
 		if (twoGen == 2) {
-			// ?
+			// check that 7G8H are solved
+			if (!(fp.singleMatch(fp.pos[18], 14) && fp.singleMatch(fp.pos[19], 6) &&
+				fp.singleMatch(fp.pos[20], 6) && fp.singleMatch(fp.pos[21], 15) &&
+				fp.singleMatch(fp.pos[22], 7) && fp.singleMatch(fp.pos[23], 7))) return 19;
 		} else if (twoGen == 1) {
-			// ?
+			// check that G8H are solved or solved-and-ADF
+			if (fp.singleMatch(fp.pos[19], 6) && fp.singleMatch(fp.pos[20], 6) &&
+				fp.singleMatch(fp.pos[21], 15) && fp.singleMatch(fp.pos[22], 7) &&
+				fp.singleMatch(fp.pos[23], 7)) {
+				// ok
+			} else if (fp.singleMatch(fp.pos[18], 6) && fp.singleMatch(fp.pos[19], 6) &&
+				fp.singleMatch(fp.pos[20], 15) && fp.singleMatch(fp.pos[21], 7) &&
+				fp.singleMatch(fp.pos[22], 7)) {
+				// ok
+			} else return 19;
 		}
 		if (keepCubeShape) {
 			// check that it's in cube shape and of the right parity
 			if (!((shp==5052 || shp==4148 || shp==5039 || shp==4163) && (shp2==5052 || shp2==4148 || shp2==5039 || shp2==4163))) {
 				return 19;
-			}
-			if (twoGen == 1) {
-				// ?
 			}
 		}
 		
@@ -1351,7 +1294,6 @@ public:
 		int optimalMoves = -1;
 		while(true){
 			l++;
-			//if (l>0) break;
 			if( !turnMetric && middle!=0 ) l++;
 			if(verbosity>=5) std::cout<<"searching depth "<<l<<std::endl<<std::flush;
 			for( int i=0; i<6; i++) lastTurns[i]=0;
@@ -1391,8 +1333,7 @@ public:
 			if( i<0 || ( i==0 && ((absTopMove + absBottomMove > 6) || (absTopMove + absBottomMove == 6 && absTopMove < absBottomMove)))) return 0;
 		}
 
-		// check if it is now solved
-		// instead of this, we should check if the position vector matches what we expect. we can still check shp though.
+		// check if it is now solved, but we can't rely on e0/c0/etc anymore
 		if( l==0 ){
 			if (fp.matchesSolved() && middle>=0) {
 				printsol();
@@ -1401,8 +1342,7 @@ public:
 			}else if( turnMetric ) return 0;
 		}
 
-		// prune
-		// but only do this if e0/c0/e1/c1/e2/c2 are not -1
+		// prune, but only do each check if the relevant values are not -1
 		if (e0>-1 && c0>-1) {
 			if( pr1.table[shp ][e0][c0]>l+1 && pr1.table[shpx][e0][c0]>l+1) return(0);
 		}
@@ -1412,6 +1352,7 @@ public:
 		if (e2>-1 && c2>-1) {
 			if( pr2.table[shp2][e2][c2]>l+1 && pr2.table[shpx2][e2][c2]>l+1) return(0);
 		}
+		// we need a shape-only pruning table
 
 		// try all top layer moves
 		if( lm>=2 ){
@@ -1480,55 +1421,6 @@ public:
 		}
 		return r;
 	}
-
-	int normaliseMove(int m){
-		while(m<0) m+=12;
-		while(m>=12) m-=12;
-		if( usenegative && m>6 ) m-=12;
-		return m;
-	}
-	void printmove(int mu, int md){
-		if( mu!=0 || md!=0 ) {
-			if( usebrackets ) std::cout<<"(";
-			std::cout<<mu<<","<<md;
-			if( usebrackets ) std::cout<<")";
-		}
-	}
-	void printsol(){
-		int tw=0, tu=0;
-		int mu=0, md=0;
-		if( generator ){
-			for( int i=moveLen-1; i>=0; i--){
-				if( moveList[i]==0 ){
-					printmove(mu,md); mu = md = 0;
-					std::cout<<"/";
-					tu++; tw++;
-				}else if( moveList[i]<12 ){
-					mu = normaliseMove(mu-moveList[i]);
-					tu++;
-				}else{
-					md = normaliseMove(md+moveList[i]);
-					tu++;
-				}
-			}
-		}else{
-			for( int i=0; i<moveLen; i++){
-				if( moveList[i]==0 ){
-					printmove(mu,md); mu = md = 0;
-					std::cout<<"/";
-					tu++; tw++;
-				}else if( moveList[i]<12 ){
-					mu = normaliseMove(mu+moveList[i]);
-					tu++;
-				}else{
-					md = normaliseMove(md-moveList[i]);
-					tu++;
-				}
-			}
-		}
-		printmove(mu,md);
-		std::cout <<"  ["<<tw<<"|"<<tu<<"] "<<std::endl;
-	}
 };
 
 int show(int e){
@@ -1557,6 +1449,9 @@ void help(){
 	std::cout<<"   the edges, starting from the front seam clockwise around the top layer and"<<std::endl;
 	std::cout<<"   then clockwise around the bottom layer. Optionally, the middle layer is"<<std::endl;
 	std::cout<<"   denoted by a - for a square and / for kite shape."<<std::endl;
+	std::cout<<"   You can also partially define pieces:"<<std::endl;
+	std::cout<<"   U is a top corner, V is a bottom corner, W is any corner,"<<std::endl;
+	std::cout<<"   X is a top edge,   Y is a bottom edge,   Z is any edge."<<std::endl;
 	std::cout<<"<movesequence> is a string encoding a sequence of moves. Layer turns are"<<std::endl;
 	std::cout<<"   denoted by (t,b) where t and b are integers indicating that the top and"<<std::endl;
 	std::cout<<"   bottom layers are turned by t and b twelths of a full circle. Positive"<<std::endl;
@@ -1581,6 +1476,7 @@ void help(){
 
 // -w|u=twist/turn metric  -a=all  -m=ignore middle
 int main(int argc, char* argv[]){
+	clock_t now = clock();
 	bool ignoreMid=false;
 	bool ignoreTrans=false;
 	bool turnMetric=true;
@@ -1694,8 +1590,8 @@ int main(int argc, char* argv[]){
 	if(verbosity>=4) std::cout << "  1. Colouring 2 pruning table"<<std::endl;
 	PrunTable pr2(q, 1, st,scte,sctc, turnMetric );
 	if(verbosity>=4) std::cout << "  0. Finished."<<std::endl;
-	//PositionSolver s( st, scte, sctc, pr1, pr2 );
-	PartialPositionSolver s( st, scte, sctc, pr1, pr2 );
+	PositionSolver ps( st, scte, sctc, pr1, pr2 );
+	PartialPositionSolver pps( st, scte, sctc, pr1, pr2 );
 
 	if(verbosity>=2){
 		std::cout<<"Flags: "<<(turnMetric? "Turn":"Twist")<<" Metric, ";
@@ -1736,15 +1632,26 @@ int main(int argc, char* argv[]){
 			std::cout<<std::endl;
 		}
 
-		// convert position to colour encoding
-		s.set(p, turnMetric, findAll, ignoreTrans);
+		if (p.isPartial()) {
+			// convert position to colour encoding
+			pps.set(p, turnMetric, findAll, ignoreTrans);
 
-		//solve position
-		int r = s.solve(twoGen, extraMoves, keepCubeShape);
-		if (r) show(r);
-		std::cout<<std::endl;
+			//solve position
+			int r = pps.solve(twoGen, extraMoves, keepCubeShape);
+			if (r) show(r);
+			std::cout<<std::endl;
+		} else {
+			// convert position to colour encoding
+			ps.set(p, turnMetric, findAll, ignoreTrans);
+
+			//solve position
+			int r = ps.solve(twoGen, extraMoves, keepCubeShape);
+			if (r) show(r);
+			std::cout<<std::endl;
+		}
 	}while( posArg<0 && ( (inpFile!=NULL && !is.eof() ) || (inpFile==NULL && (numpos==0 || numpos-- > 1)) ));
 
+	std::cout << "Time: " << (clock() - now);
 	return(0);
 }
 
