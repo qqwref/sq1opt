@@ -1,111 +1,37 @@
-SQUARE-1 OPTIMISER version 1.0
+SQUARE-1 OPTIMISER version 2.0
 ~~~~~~~~~~~~~~~~~~
-by Jaap Scherphuis, jaapsch@yahoo.com, copyright 2003-2011.
+by Jaap Scherphuis, jaapsch@yahoo.com, copyright 2003-2011
+and Michael Gottlieb, qqwref@gmail.com, copyright 2023
 
-This program implements a search algorithm to find optimal move sequences to
-solve a given position in the Square 1 puzzle.
+This program implements a search algorithm to find optimal and suboptimal
+algs for the Square-1.
 
-It requires at least 75MB RAM.
+It requires at least 75MB RAM. To see more details and history, check out
+sq1opt_old.txt. This file is meant to be shorter and easier to get started
+with.
 
-
-The Square 1 Puzzle
-~~~~~~~~~~~~~~~~~~~
-
-This puzzle is a cube consisting of three layers. The top and bottom layers
-are cut like a pie in 8 pieces; 4 edge pieces and 4 corner pieces, 30 and 60
-degrees wide respectively. The top and bottom layers can rotate. The middle
-layer is cut in only two halves along one of the lines of the other layers.
-If there are no corner pieces in the way, you can twist half the cube 180
-degrees so that pieces from the top and bottom layers mingle.
-
-The puzzle is unique in that the two types of pieces intermingle. The edge
-and corner pieces can freely move between the two outer layers. Of course,
-the puzzle will not necessarily be a cube shape when the pieces are mixed.
-The puzzle has six colours, each face has a single colour similar to the
-Rubik's cube. The aim is of course to return a mixed puzzle back to its
-original solved position.
-
-The number of positions:
-There are three categories of puzzle shapes.
-  a. Both layers have 4 edges and 4 corners each.
-  b. One layer has 3 corners, 6 edges, the other 5 corners 2 edges.
-  c. One layer has 2 corners, 8 edges, the other 6 corners and no edges.
-
-There are 1, 3, 10, 10 and 5 layer shapes with 6, 5, 4, 3 and 2 corners.
-This means there are 5*1+10*3+10*10+3*10+1*5 = 170 shapes for the top and
-bottom layers. The middle layer has two shapes (half of it is assumed to be
-fixed). This means that there seem to be 170*2*8!*8! = 552,738,816,000
-positions if we disregard rotations of the layers. Some layer shapes however
-have symmetry, and these have been counted too many times this way.
-
-
-To take account of the symmetries we can simply count the number of layer
-shapes differently. Instead of the numbers 1, 3, 10, 10, 5 we use the
-numbers 2, 36, 105, 112, 54, which are the number of shapes if we consider
-rotations different (e.g. a square counts as 3 because it has three possible
-orientations). By the same method as before we then get 19305*2*8!*8!
-or 627,768,369,664,000 positions.
-
-To exclude layer rotations, divide by 12^2 to get a total of 435,891,456,000
-distinct positions.
-
-
-
-The Search Algorithm
-~~~~~~~~~~~~~~~~~~~~
-
-Here I will describe some of the technical details of how the program
-works for those who are interested. It is not necessary to know this
-in order to use the program.
-
-The search algorithm is essentially a straightforward pruned search
-for increasing depths (i.e. the IDA* algorithm). It starts with the
-position to be solved, and applies each single move to it in turn and
-checks if any of them results in the solved position. This is usually
-not the case, and then it tries all sequences of two moves, then three
-moves, and so on. Eventually it a solution must be found this way. This
-search is speeded up by using pruning tables to check intermediate
-positions. A pruning table gives the number of moves it takes to solve
-some aspect of a position. If some aspect of a position takes many moves
-to solve, then the position as a whole takes at least as many. This way
-many partial move sequences can be rejected without having to extend it
-to all move sequences of the current search depth.
-
-The aspects of the position that are used for pruning are best
-described as 'colourings'. Consider a square-1 where the sides
-are not coloured, and the top and bottom faces are white and green
-as usual. The first pruning table gives how many moves it takes to
-solve a puzzle with this colour scheme from any position. Two other
-colourings are used, and these are such that each piece of the
-square-1 can be uniquely determined from the colours it is given by the
-three colourings. These two colourings are mirror images of each other
-so to save on memory they can share their tables.
-
-Before starting the search, the position is converted to a set of numbers,
-one number for the shape (and piece parity), and three more numbers for
-the colour arrangement given by the three colouring schemes. During the
-search transition tables are used, which are tables that give the effect
-of any move on the 4 numbers that identify the position. This speeds up the
-search considerably, as moves can be performed very quickly. When each of
-the colourings are solved, then the original puzzle will have been solved
-too.
-
-
-
+Some of the new features since version 1 are:
+- Graphical helper to let you find algs without learning the input format
+- Generating suboptimal algs
+- Generating algs in 2gen or pseudo 2gen
+- Generating algs that stay in cube shape
+- Allowing partially defined pieces
+- Improved choice of moves in the first shown alg (e.g. preferring (-3,0)
+  to (3,6))
+- Automatically checking if the given position is valid and solvable
+- Optional output in Karnotation
 
 Notation
 ~~~~~~~~
 
-First we need a notation for the moves used on the puzzle. Hold the
-puzzle so that the yellow middle layer piece is on the left hand side
-with its 'Square-1' inscription the right way up. Denote a 180 degree
-twist of the right hand side of the puzzle by a / sign (a slash). This
-kind of move will be called simply a 'twist'. Turns of the top and bottom
-layers are denoted by a pair of numbers (n,m). These numbers are the
-multiple of 30 degrees clockwise that the top/bottom layers are to turn
-respectively. Thus (3,0) means turn only the top layer clockwise 90
-degrees, and (0,-1) means turn only the bottom layer 30 degrees
-anti-clockwise (i.e. one edge along). 
+The standard notation uses slashes, denoted by /, and turns of the top and
+bottom layers, denoted by (x,y) where x and y are the multiples of 30
+degrees clockwise that the top and bottom layers (respectively) should be
+turned.
+
+This program can also output algs in Karnotation, which you can learn
+about here: https://www.youtube.com/watch?v=-vf8O4wbDnk. Be warned that
+algs in this notation are generally written without ABF on the start/end.
 
 There are generally two ways to count the length of a sequence:
 Twist Metric:  The length is simply the number of twists.
@@ -113,17 +39,9 @@ Twist Metric:  The length is simply the number of twists.
 Turn Metric:   The length is the number of (non-zero) turns and twists.
                  For example, (3,0) is one move, as is /, and /(6,6)/(-1,1)
                  is 6 moves.
-This version of the program can use either metric.
-
-Note that there is an equivalence. The move sequence
-  (a,b)/(c,d)/(e,f)
-has the same effect as the sequence
-  (6+a,6+b)/(d,c)/(6+e,6+f)
-The program will make use of this to reduce the number of moves to be
-searched at each stage. The bottom layer is never turned 6 or more, except
-possibly just before of just after the first twist. It is possible to switch
-this feature off, so that the search will take longer but will result in all
-move sequences that solve the position.
+Turn metric is the default, but the program can use either. All algs will be
+shown with a number [n|m], where n is the twist metric and m is the turn
+metric.
 
 We also need a notation for each position of the puzzle. All the corner
 pieces are denoted by letters, the edges by digits. On the solved puzzle,
@@ -136,79 +54,65 @@ bottom layer pieces in a similar manner. If the shape of the middle layer
 should be considered, it can be denoted by appending a - or a / to indicate
 whether it is square or kite-shaped respectively.
 
-The standard colour scheme of the puzzle has the following colours:
-Left:   Yellow
-Front:  Orange
-Right:  Blue
-Back:   Red
-Top:    White
-Bottom: Green
-
-For easy reference, here are the letters/numbers used in the position
-notation above:
-
-Letter   Colours
-  A        WYO
-  B        WRY
-  C        WBR
-  D        WOB
-  E        GOB
-  F        GBR
-  G        GRY
-  H        GYO
-
-Number   Colours
-  1        WY
-  2        WR
-  3        WB
-  4        WO
-  5        GO
-  6        GB
-  7        GR
-  8        GY
-
-
+The solver also allows some or all pieces to be partially defined. That
+is, a piece could simply be "a top corner", or "any edge". This makes it
+possible to find algs for cubeshape, OBL, layer by layer, etc.
+U is a top corner, V is a bottom corner, W is any corner,
+X is a top edge,   Y is a bottom edge,   Z is any edge.
 
 
 Using the program
 ~~~~~~~~~~~~~~~~~
-Once you understand the notation, the program is fairly simple to use. Run
-the program from the DOS command line (on windows choose Accessories
-and Command Prompt) as follows:
-   sq1optim <position>
-To abort the program while it is still searching, press Ctrl-C or Ctrl-Break.
 
-The position to be solved can be specified in two ways. Either by a sequence of
-moves, e.g. (1,0)/(3,0)/(6,-3)/(2,3), or by a position, e.g. A2B3C1D45E6F7G8H-.
-Note that there should be no spaces in a list of moves. If no position is
-supplied, a random position is generated.
+On Windows, you should be able to download the .exe file, and then run it
+through cmd (the Windows command line) by nevigating to the folder and then
+typing in:
+   sq1opt.exe <position> <options>
+To abort the program while it is still searching, press Ctrl-C or Ctrl-Break.
+If you're on Linux, you will probably want to compile it yourself, but you
+should know how to do that.
+
+You can either use the graphical helper to set up a position and options,
+and then just paste the command into your command line window, or you can
+write the command yourself as seen below.
+
+The position to be solved can be specified in two ways. Either by a
+sequence of moves, e.g. (1,0)/(3,0)/(6,-3)/(2,3), or by a position, e.g.
+A2B3C1D45E6F7G8H-.
+Note that by default, the move sequence you give will need to solve the
+position, not create it. You can change this behavior with the -g flag
+(see below).
 
 There are some optional command line switches you can use:
-  -w     Use the Twist metric. By default, the Turn metric is used.
-  -m     Ignore middle layer. By default the middle layer is not ignored unless
-           a position is specified without the / or - for the middle layer.
-  -a     Search for all best sequences, not just one. If the best sequence so
-           far is of length 8, then without this switch only sequences of
-           length 7 or less will be searched. With this switch, further length
-           8 sequences are still found.
-  -x     Ignore the equivalence. This slows the search down, but when used with
-           the -a switch all move sequences are generated, even those which
-           turn the bottom layer more than half.
-  -i..   Use an input file to give the positions to solve. Each line in the file
-           contains one position (or move sequence). The filename should
-           immediately follow the -i switch without a space in between.
-  -r<n>  Solve n random positions. If n is 0 or missing, program continues
-           until it ctrl-c or ctrl-break is pressed. Is ignored if a position
-           or an input file is specified.
-
-  -g     Input/Output generating move sequences instead of solving move sequences.
-  -n     Display anti-clockwise moves using negative numbers -5..-1 instead of 7..11.
-  -v<n>  Set verbosity level. -v0 is only the move sequence(s), -v7 is full output.
-  
-When a solution is found it is displayed. The length of the solutions is
-given as [a|b], where a is the length in Twist metric (in other words a is
-simply the number of / moves) and b is the length in Turn metric. For example
-(1,0)/(3,0)/(6,-3)/(2,3)   [3|9]
+  -w     Use the Twist metric. By default, the Turn metric is used. 
+  -a     Search for all best sequences, not just one. You can also add a
+           number (e.g. -a2) to find all sequences up to a certain number
+		   of moves from optimal (this can take a while).
+  -x     There is an equivalence where many algs of the same length can do
+           the same thing, just with a bunch of extra (6,6)s. By default,
+		   the search only finds what it thinks is the best alg out of
+		   those, but you can set this to ignore this and show ALL algs.
+		   There can be a lot of them.
+  -m     Ignore the middle layer. By default, the middle layer is only
+           ignored if you give a position with no middle layer character.
+  -b     Output the move sequence with (x,y) instead of the shorter x,y.
+  -r<n>  Solve n random positions. If n is 0 or missing, it will solve
+           random positions until you stop it.
+  -v<n>  Set verbosity level. -v0 is only the move sequence(s), -v7 is
+           full output.
+  -h     Display help.
+  -g     Input and output move sequences that generate the position,
+           instead of ones that solve it.
+  -i..   Use an input file to give the positions to solve. Each line in
+           the file contains one position or move sequence. The filename
+		   should immediately follow the -i switch without a space in
+		   between.
+  -2     2gen - look for algs that don't move the bottom layer.
+  -p     Pseudo 2gen - look for algs that move the bottom layer by at most
+           30 degrees (plus or minus 1).
+  -c     Look for algs that stay in cube shape the whole time.
+  -k     Output algs in Karnotation. This will ignore adjustments of U/D
+           before and after the alg, except for moves of plus or minus 1.
 
 
 When first run it calculates various tables which are stored in files
@@ -222,9 +126,11 @@ for subsequent runs. These files are:
   sq1p1w.dat    35,200KB   Colouring 1 pruning table, twist metric
   sq1p2w.dat    35,200KB   Colouring 2 pruning table, twist metric
 
-These files are stored in the directory where the program is, so it must be a
-writable directory.
+These files are stored in the directory where the program is, so it must
+be a writable directory.
 
+Examples
+~~~~~~~~
 
 Example 1:
    sq1optim A2B3C1D45E6F7G8H/
@@ -285,37 +191,22 @@ Generate five random scrambles, with no extraneous output.
 
 
 
-Results
-~~~~~~~
-Most of the results that I have found using this program are on my web site.
-I suspect that God's algorithm (the shortest possible way of solving any 
-position) uses at most 30 moves, but clearly this cannot be proved conclusively
-with a program such as this. It is known that it takes at most 13 twists to
-solve any position (or 12 if the middle layer is ignored).
+Version History
+~~~~~~~~~~~~~~~
+   August    2003, Jaap:    Version 1.00
+12 September 2003, Jaap:    Version 1.01,  minor bugfix
+10 March     2011, Jaap:    Version 1.02,  extra output settings,
+                                           generator sequences, help
+   June      2023, Michael: Version 2.00,  various outputs
 
-
-
-
-
-
-
-Revision History
-~~~~~~~~~~~~~~~~
-   August    2003: Version 1.00
-12 September 2003: Version 1.01,  minor bugfix
-10 March     2011: Version 1.02,  extra output settings, generator sequences, help
-
-I could not have done this without Mike Godfrey, who wrote a similar solver.
-He told me about the colour schemes, and showed that it was possible and
-worthwhile to write such a program.
-
+Jaap thanks Mike Godfrey for his previous work, and I similarly would like
+to thank Jaap for his.
 
 Jaap's Puzzle Page:  http://www.jaapsch.net/puzzles/
+qq's Homepage:  http://www.mzrg.com/
 
 ----------------------------------------------------------------------------
-This program was written by Jaap Scherphuis, copyright August 2003.
+This program was written by Jaap Scherphuis, copyright August 2003-2011,
+and Michael Gottlieb, copyright 2023.
 It may not be sold. It may be freely distributed provided this
 documentation is provided in some form without changes to the text.
-
-The program can be downloaded from Jaap's Puzzle Page:
-http://www.jaapsch.net/puzzles/
