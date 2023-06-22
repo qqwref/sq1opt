@@ -1542,7 +1542,6 @@ void help(){
 
 // -w|u=twist/turn metric  -a=all  -m=ignore middle
 int main(int argc, char* argv[]){
-	clock_t now = clock();
 	bool ignoreMid=false;
 	bool ignoreTrans=false;
 	bool turnMetric=true;
@@ -1721,7 +1720,6 @@ int main(int argc, char* argv[]){
 		}
 	}while( posArg<0 && ( (inpFile!=NULL && !is.eof() ) || (inpFile==NULL && (numpos==0 || numpos-- > 1)) ));
 
-	std::cout << "Time: " << (clock() - now);
 	return(0);
 }
 
