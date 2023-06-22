@@ -36,10 +36,124 @@ const char* errors[]={
 	"Position can't be solved with these constraints",//19
 };
 
+const int KARNOTATION_LEN = 109;
+const std::string KARNOTATION[KARNOTATION_LEN][2]={
+	{"U", "3,0"},
+	{"U'", "9,0"},
+	{"U2", "6,0"},
+	{"D", "0,3"},
+	{"D'", "0,9"},
+	{"D2", "0,6"},
+	{"u", "2,&"},
+	{"u'", "^,1"},
+	{"d", "&,2"},
+	{"d'", "1,^"},
+	{"E", "3,9"},
+	{"E'", "9,3"},
+	{"e", "3,3"},
+	{"e'", "9,9"},
+	{"F", "4,1"},
+	{"F'", "8,&"},
+	{"f", "1,4"},
+	{"f'", "&,8"},
+	{"M", "1,1"},
+	{"M'", "&,&"},
+	{"m", "2,2"},
+	{"m'", "^,^"},
+	{"u2", "5,&"},
+	{"u2'", "7,1"},
+	{"d2", "&,5"},
+	{"d2'", "1,7"},
+	{"T", "2,8"},
+	{"T'", "^,4"},
+	{"t", "4,^"},
+	{"t'", "8,2"},
+	{"W ", "3,0/9,0/"},
+	{"W' ", "9,0/3,0/"},
+	{"B ", "0,3/0,9/"},
+	{"B' ", "0,9/0,3/"},
+	{"w ", "2,&/^,1/"},
+	{"w' ", "^,1/2,&/"},
+	{"b ", "&,2/1,^/"},
+	{"b' ", "1,^/&,2/"},
+	{"E\\ ", "3,0/0,9/"},
+	{"E\\' ", "9,0/0,3/"},
+	{"e\\ ", "3,0/0,3/"},
+	{"e\\' ", "9,0/0,9/"},
+	{"F2 ", "4,1/8,&/"},
+	{"F2' ", "8,&/4,1/"},
+	{"f2 ", "1,4/&,8/"},
+	{"f2' ", "&,8/1,4/"},
+	{"U3 ", "3,0/9,0/3,0/"},
+	{"U3' ", "9,0/3,0/9,0/"},
+	{"D3 ", "0,3/0,9/0,3/"},
+	{"D3' ", "0,9/0,3/0,9/"},
+	{"u3 ", "2,&/^,1/2,&/"},
+	{"u3' ", "^,1/2,&/^,1/"},
+	{"u4 ", "2,&/^,1/2,&/^,1/"},
+	{"u4' ", "^,1/2,&/^,1/2,&/"},
+	{"d3 ", "&,2/1,^/&,2/"},
+	{"d3' ", "1,^/&,2/1,^/"},
+	{"d4", "&,2/1,^/&,2/&,2"},
+	{"d4' ", "1,^/&,2/1,^/&,2/"},
+	{"UU", "1,0/5,&/9,0/1,1/9,0/&,0"},
+	{"UU'", "1,0/2,&/1,1/2,&/7,1/&,0"},
+	{"FV", "0,&/1,^/&,2/1,^/&,2/0,1"},
+	{"VF", "1,0/2,&/^,1/2,&/^,1/&,0"},
+	{" JJ ", "/0,9/3,3/9,0/"},
+	{" jJ ", "/0,9/3,3/9,0/"},
+	{" Jj ", "/0,9/3,3/9,0/"},
+	{" jj ", "/0,9/3,3/9,0/"},
+	{" bJJ ", "/9,0/3,3/0,9/"},
+	{" bjJ ", "/9,0/3,3/0,9/"},
+	{" bJj ", "/9,0/3,3/0,9/"},
+	{" bjj ", "/9,0/3,3/0,9/"},
+	{" JN ", "/0,9/0,3/0,9/0,3/"},
+	{" jN ", "/0,9/0,3/0,9/0,3/"},
+	{" Jn ", "/0,9/0,3/0,9/0,3/"},
+	{" jn ", "/0,9/0,3/0,9/0,3/"},
+	{" NN ", "/9,3/3,9/"},
+	{" Nn ", "/9,3/3,9/"},
+	{" nN ", "/9,3/3,9/"},
+	{" nn ", "/9,3/3,9/"},
+	{" NJ ", "/3,0/9,0/3,0/9,0/"},
+	{" nJ ", "/3,0/9,0/3,0/9,0/"},
+	{" Nj ", "/3,0/9,0/3,0/9,0/"},
+	{" nj ", "/3,0/9,0/3,0/9,0/"},
+	{" 3Adj ", "/3,0/&,&/^,1/"},
+	{" 03Adj ", "/0,3/&,&/1,^/"},
+	{" JR ", "/9,9/2,&/^,1/3,3/"},
+	{" jR ", "/9,9/2,&/^,1/3,3/"},
+	{" Jr ", "/9,9/1,^/&,2/3,3/"},
+	{" jr ", "/9,9/1,^/&,2/3,3/"},
+	{" RJ ", "/3,3/1,^/&,2/9,9/"},
+	{" rJ ", "/3,3/2,&/^,1/9,9/"},
+	{" Rj ", "/3,3/1,^/&,2/9,9/"},
+	{" rj ", "/3,3/2,&/^,1/9,9/"},
+	{" bRJ ", "/9,9/^,1/2,&/3,3/"},
+	{"brJ ", "1,0/9,9/&,2/1,^/3,3/&,0/"},
+	{"bRj ", "0,&/9,9/^,1/2,&/3,3/0,1/"},
+	{"brj ", "1,&/9,9/&,2/1,^/3,3/&,1/"},
+	{"RR ", "1,0/2,&/^,4/5,&/^,1/&,0/"},
+	{"rr ", "0,&/^,1/5,&/^,4/2,&/0,1/"},
+	{"pJ", "0&/^,1/2,2/0,9/0,1"},
+	{"pj", "0,&/1,^/2,2/9,0/0,1"},
+	{"pN", "1,0/2,8/^,4/&,0"},
+	{"fpJ", "1,0/2,&/^,^/0,3/&,0"},
+	{"AA ", "1,0/0,9/2,2/0,9/^,4/&,0/"},
+	{"aa", "0&/1,^/2,2/1,^/8,2/0,1"},
+	{"TT", "1,0/5,&/9,0/^,^/0,3/&,0"},	
+	{"OppOpp", "1,0/&,&/6,0/1,1/&,0"},
+	{"FF", "1,0/0,9/2,2/0,9/1,1/9,3/&,0"},
+	{"M2", "1,0/&,&/0,1"},
+	{"m2", "1,0/5,&/7,1/&,0"}
+};
+
 int verbosity = 5;
 bool generator=false;
 bool usenegative=false;
 bool usebrackets=false;
+bool karnotation=false;
 
 
 class HalfLayer {
@@ -1182,21 +1296,36 @@ class PositionSolver {
 		if( usenegative && m>6 ) m-=12;
 		return m;
 	}
-	void printmove(int mu, int md){
-		if( mu!=0 || md!=0 ) {
-			if( usebrackets ) std::cout<<"(";
-			std::cout<<mu<<","<<md;
-			if( usebrackets ) std::cout<<")";
+	std::string printmove(int mu, int md, bool removeAUF){
+		std::string out = "";
+		if (removeAUF) {
+			mu = (mu + 13)%3 - 1;
+			md = (md + 13)%3 - 1;
 		}
+		if( mu!=0 || md!=0 ) {
+			if( usebrackets && !karnotation ) out += "(";
+			out += std::to_string(mu) + "," + std::to_string(md);
+			if( usebrackets && !karnotation ) out += ")";
+		}
+		return out;
+	}
+	std::string replaceAll(std::string str, std::string olds, std::string news) {
+		size_t pos;
+		while ((pos = str.find(olds)) != std::string::npos) {
+			str.replace(pos, olds.length(), news);
+		}
+		return str;
 	}
 	void printsol(){
+		std::string out = "";
 		int tw=0, tu=0;
 		int mu=0, md=0;
 		if( generator ){
 			for( int i=moveLen-1; i>=0; i--){
 				if( moveList[i]==0 ){
-					printmove(mu,md); mu = md = 0;
-					std::cout<<"/";
+					out += printmove(mu, md, (tw==0 && karnotation));
+					mu = md = 0;
+					out += "/";
 					tu++; tw++;
 				}else if( moveList[i]<12 ){
 					mu = normaliseMove(mu-moveList[i]);
@@ -1209,8 +1338,9 @@ class PositionSolver {
 		}else{
 			for( int i=0; i<moveLen; i++){
 				if( moveList[i]==0 ){
-					printmove(mu,md); mu = md = 0;
-					std::cout<<"/";
+					out += printmove(mu, md, (tw==0 && karnotation));
+					mu = md = 0;
+					out += "/";
 					tu++; tw++;
 				}else if( moveList[i]<12 ){
 					mu = normaliseMove(mu+moveList[i]);
@@ -1221,7 +1351,34 @@ class PositionSolver {
 				}
 			}
 		}
-		printmove(mu,md);
+		out += printmove(mu, md, karnotation);
+		if (karnotation) {
+			out = replaceAll(out, std::string(" "), std::string(""));
+			
+			// replace all negative numbers to avoid e.g. (-2,-4) -> -T
+			out = replaceAll(out, std::string("-1"), std::string("&"));
+			out = replaceAll(out, std::string("-2"), std::string("^"));
+			out = replaceAll(out, std::string("-3"), std::string("9"));
+			out = replaceAll(out, std::string("-4"), std::string("8"));
+			out = replaceAll(out, std::string("-5"), std::string("7"));
+			
+			// do the karnotation replacements
+			for (int i = KARNOTATION_LEN-1; i>=0; i--)
+			{
+				out = replaceAll(out, KARNOTATION[i][1], KARNOTATION[i][0]);
+			}
+			
+			out = replaceAll(out, std::string("/"), std::string(" "));
+			out = replaceAll(out, std::string("\\"), std::string("/")); // handle slashes for E/, e/
+			out = replaceAll(out, std::string(","), std::string(""));
+			// undo number replacement
+			out = replaceAll(out, std::string("&"), std::string("-1"));
+			out = replaceAll(out, std::string("^"), std::string("-2"));
+			out = replaceAll(out, std::string("9"), std::string("-3"));
+			out = replaceAll(out, std::string("8"), std::string("-4"));
+			out = replaceAll(out, std::string("7"), std::string("-5"));
+		}
+		std::cout << out;
 		std::cout <<"  ["<<tw<<"|"<<tu<<"] "<<std::endl;
 	}
 };
@@ -1233,8 +1390,6 @@ class PartialPositionSolver : public PositionSolver {
 public:
 	PartialPositionSolver( ShapeTranTable& stt0, ShpColTranTable& scte0, ShpColTranTable& sctc0, PrunTable& pr10, PrunTable& pr20 )
 	    : PositionSolver(stt0, scte0, sctc0, pr10, pr20) {}
-		//,stt(stt0), scte(scte0), sctc(sctc0), pr1(pr10), pr2(pr20) {};
-	//	: stt(stt0), scte(scte0), sctc(sctc0), pr1(pr10), pr2(pr20) {};
 	void set(FullPosition& p, bool turnMetric0, bool findAll0, bool ignoreTrans0){
 		PositionSolver::set(p, turnMetric0, findAll0, ignoreTrans0);
 		shpx = stt.getShape(p.getShape(),!p.getParityOdd());
@@ -1381,6 +1536,7 @@ void help(){
 	std::cout<<"   -2     2gen - no bottom layer moves."<<std::endl;
 	std::cout<<"   -p     Pseudo 2gen - only allow bottom layer moves of 1, 0, -1."<<std::endl;
 	std::cout<<"   -c     Only generate algs that stay in a square/square cubeshape."<<std::endl;
+	std::cout<<"   -k     Output algs in Karnotation. Ignores ABF."<<std::endl;
 }
 
 
@@ -1454,6 +1610,10 @@ int main(int argc, char* argv[]){
 				case 'c':
 				case 'C':
 					keepCubeShape = true;
+					break;
+				case 'k':
+				case 'K':
+					karnotation = true;
 					break;
 				default:
 					return show(1);
