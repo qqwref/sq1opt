@@ -28,7 +28,7 @@ var selected = -1;
 
 var browser = getBrowser(); // only want to call this once
 
-//window.onkeydown=function(event){doKey(event)};
+window.onkeydown=function(event){doKey(event)};
 
 /**********************
  * CONTROL & GRAPHICS *
@@ -374,6 +374,28 @@ function doSlice() {
 function isTwistable() {
  return position[0]!=position[11] && position[5]!=position[6] && position[12]!=position[23] && position[17]!=position[18];
 }
+
+function doKey(e) {
+ var keyCode = 0;
+ if (e.keyCode) {
+  keyCode = e.keyCode;
+ } else if (e.which) {
+  keyCode = e.which;
+ }
+ if (e.stopPropagation) e.stopPropagation();
+ e.preventDefault();
+
+ 
+ //i = /
+ if (keyCode == 73) doSlice();
+ //j f = U U'
+ else if (keyCode == 74) doU();
+ else if (keyCode == 70) doUPrime();
+ //s l = D D'
+ else if (keyCode == 83) doD();
+ else if (keyCode == 76) doDPrime();
+}
+
 
 /********************
  * HELPER FUNCTIONS *
