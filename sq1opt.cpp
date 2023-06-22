@@ -1,3 +1,9 @@
+/*
+ * SQUARE-1 OPTIMISER version 2.0
+ * by Jaap Scherphuis, jaapsch@yahoo.com, copyright 2003-2011
+ * and Michael Gottlieb, qqwref@gmail.com, copyright 2023
+ */
+
 #include <fstream>
 #include <iostream>
 #include <cstring>
@@ -1504,10 +1510,10 @@ int parseInteger(const char* s){
 }
 
 void help(){
-	std::cout<<"Usage:"<<std::endl;
-	std::cout<<"  sq1optim <switches> <position>"<<std::endl;
-	std::cout<<"  sq1optim <switches> <movesequence>"<<std::endl;
-	std::cout<<"  sq1optim <switches>"<<std::endl;
+	std::cout<<"Square-1 Optimizer v2 Usage:"<<std::endl;
+	std::cout<<"  sq1opt <switches> <position>"<<std::endl;
+	std::cout<<"  sq1opt <switches> <movesequence>"<<std::endl;
+	std::cout<<"  sq1opt <switches>"<<std::endl;
 	std::cout<<std::endl;
 	std::cout<<"<position> is a string encoding a particular position. For example"<<std::endl;
 	std::cout<<"   A1B2C3D45E6F7G8H- is the solved position. Letters represent corners, numbers"<<std::endl;
