@@ -1,0 +1,458 @@
+<html>
+<head>
+<title>Sq1Opt Helper</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<style>
+td {padding:0;}
+.no {display:none;}
+div {border-style:solid;border-width:0;}
+</style>
+<script type="text/javascript">
+<!--
+
+var s=2; // size of cube
+var r1=1, r2=2, l1=1, l2=2; // handshifting
+var cwidth=300, cheight=500; // size of canvas
+var cnt=0; // move count
+
+//var stickers = [];
+var c;
+//var corners=[], edges=[], centers=[], view=[];
+var position = [0, 0, 8, 1, 1, 9, 2, 2, 10, 3, 3, 11, 12, 4, 4, 13, 5, 5, 14, 6, 6, 15, 7, 7];
+var partiality = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // 1 = top/bottom, 2 = any
+var middle = 0;
+var middle_partial = 0;
+var colors = ["#333333", "#ffffff", "#ff0000", "#0000ff", "#ff8600", "#00ff00", "#888888"]; // top, bottom, FLBR
+var side_colors = [[2, 3], [3, 4], [4, 5], [5, 2], [2, 5], [5, 4], [4, 3], [3, 2], [3], [4], [5], [2], [2], [5], [4], [3]]; // 0 to 15
+var selected = -1;
+
+var browser = getBrowser(); // only want to call this once
+
+//window.onkeydown=function(event){doKey(event)};
+
+/**********************
+ * CONTROL & GRAPHICS *
+ **********************/
+
+function init() {
+ document.bgColor = "black";
+ document.fgColor = "white";
+ 
+ c = $('c').getContext('2d');
+ $('c').height = cheight;
+ $('c').width = cwidth;
+ $('cube').height = cheight;
+ $('cube').width = cwidth;
+ $('c').addEventListener("mousedown", clicked, false);
+ $('c').addEventListener("contextmenu", function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+ });
+ 
+ draw();
+ cnt = 0;
+}
+
+var top_center = [150, 125];
+var bottom_center = [150, 375];
+var main_len = 50;
+var sub_len = 25;
+var corner_factor = 0.73205080756;
+var middle_top = 235;
+var middle_bottom = 265;
+
+function draw() {
+ drawPoly4([0,0], [cwidth,0], [cwidth,cheight], [0,cheight], "black");
+ var angle = -105;
+ var center = top_center;
+ for (var i=0; i<12; i++) {
+  var x = position[i];
+  if (x < 8) {
+   // corner
+   p1 = add(center, [Math.cos(angle*Math.PI/180)*main_len, -Math.sin(angle*Math.PI/180)*main_len]);
+   p2 = add(center, [Math.cos((angle-30)*Math.PI/180)*main_len/corner_factor, -Math.sin((angle-30)*Math.PI/180)*main_len/corner_factor]);
+   p3 = add(center, [Math.cos((angle-60)*Math.PI/180)*main_len, -Math.sin((angle-60)*Math.PI/180)*main_len]);
+   drawPoly4(center, p1, p2, p3, partiality[i]>1 ? colors[6] : colors[x<4?0:1]);
+   p1x = add(center, [Math.cos(angle*Math.PI/180)*(main_len+sub_len), -Math.sin(angle*Math.PI/180)*(main_len+sub_len)]);
+   p2x = add(center, [Math.cos((angle-30)*Math.PI/180)*(main_len+sub_len)/corner_factor, -Math.sin((angle-30)*Math.PI/180)*(main_len+sub_len)/corner_factor]);
+   p3x = add(center, [Math.cos((angle-60)*Math.PI/180)*(main_len+sub_len), -Math.sin((angle-60)*Math.PI/180)*(main_len+sub_len)]);
+   drawPoly4(p1, p1x, p2x, p2, partiality[i]>0 ? colors[6] : colors[side_colors[x][0]]);
+   drawPoly4(p2, p2x, p3x, p3, partiality[i]>0 ? colors[6] : colors[side_colors[x][1]]);
+   if (selected == i) drawSelection([center, p1x, p2x, p3x]);
+   i++;
+   angle -= 60;
+  } else {
+   // edge
+   p1 = add(center, [Math.cos(angle*Math.PI/180)*main_len, -Math.sin(angle*Math.PI/180)*main_len]);
+   p2 = add(center, [Math.cos((angle-30)*Math.PI/180)*main_len, -Math.sin((angle-30)*Math.PI/180)*main_len]);
+   drawPoly3(center, p1, p2, partiality[i]>1 ? colors[6] : colors[x<12?0:1]);
+   p1x = add(center, [Math.cos(angle*Math.PI/180)*(main_len+sub_len), -Math.sin(angle*Math.PI/180)*(main_len+sub_len)]);
+   p2x = add(center, [Math.cos((angle-30)*Math.PI/180)*(main_len+sub_len), -Math.sin((angle-30)*Math.PI/180)*(main_len+sub_len)]);
+   drawPoly4(p1, p1x, p2x, p2, partiality[i]>0 ? colors[6] : colors[side_colors[x][0]]);
+   if (selected == i) drawSelection([center, p1x, p2x]);
+   angle -= 30;
+  }
+ }
+ angle = 105;
+ center = bottom_center;
+ for (var i=12; i<24; i++) {
+  var x = position[i];
+  if (x < 8) {
+   // corner
+   p1 = add(center, [Math.cos(angle*Math.PI/180)*main_len, -Math.sin(angle*Math.PI/180)*main_len]);
+   p2 = add(center, [Math.cos((angle-30)*Math.PI/180)*main_len/corner_factor, -Math.sin((angle-30)*Math.PI/180)*main_len/corner_factor]);
+   p3 = add(center, [Math.cos((angle-60)*Math.PI/180)*main_len, -Math.sin((angle-60)*Math.PI/180)*main_len]);
+   drawPoly4(center, p1, p2, p3, partiality[i]>1 ? colors[6] : colors[x<4?0:1]);
+   p1x = add(center, [Math.cos(angle*Math.PI/180)*(main_len+sub_len), -Math.sin(angle*Math.PI/180)*(main_len+sub_len)]);
+   p2x = add(center, [Math.cos((angle-30)*Math.PI/180)*(main_len+sub_len)/corner_factor, -Math.sin((angle-30)*Math.PI/180)*(main_len+sub_len)/corner_factor]);
+   p3x = add(center, [Math.cos((angle-60)*Math.PI/180)*(main_len+sub_len), -Math.sin((angle-60)*Math.PI/180)*(main_len+sub_len)]);
+   drawPoly4(p1, p1x, p2x, p2, partiality[i]>0 ? colors[6] : colors[side_colors[x][0]]);
+   drawPoly4(p2, p2x, p3x, p3, partiality[i]>0 ? colors[6] : colors[side_colors[x][1]]);
+   if (selected == i) drawSelection([center, p1x, p2x, p3x]);
+   i++;
+   angle -= 60;
+  } else {
+   // edge
+   var center = bottom_center;
+   p1 = add(center, [Math.cos(angle*Math.PI/180)*main_len, -Math.sin(angle*Math.PI/180)*main_len]);
+   p2 = add(center, [Math.cos((angle-30)*Math.PI/180)*main_len, -Math.sin((angle-30)*Math.PI/180)*main_len]);
+   drawPoly3(center, p1, p2, partiality[i]>1 ? colors[6] : colors[x<12?0:1]);
+   p1x = add(center, [Math.cos(angle*Math.PI/180)*(main_len+sub_len), -Math.sin(angle*Math.PI/180)*(main_len+sub_len)]);
+   p2x = add(center, [Math.cos((angle-30)*Math.PI/180)*(main_len+sub_len), -Math.sin((angle-30)*Math.PI/180)*(main_len+sub_len)]);
+   drawPoly4(p1, p1x, p2x, p2, partiality[i]>0 ? colors[6] : colors[side_colors[x][0]]);
+   if (selected == i) drawSelection([center, p1x, p2x]);
+   angle -= 30;
+  }
+ }
+ var center_x1 = top_center[0] - (main_len + sub_len) * 0.97;
+ var center_x2 = top_center[0] - (main_len + sub_len) * 0.28;
+ var center_x3 = top_center[0] + (main_len + sub_len) * 0.97;
+ drawPoly4([center_x1, middle_top], [center_x2, middle_top], [center_x2, middle_bottom], [center_x1, middle_bottom], colors[2]);
+ drawPoly4([center_x2, middle_top], [center_x3, middle_top], [center_x3, middle_bottom], [center_x2, middle_bottom], middle_partial>0 ? colors[6] : colors[middle==0?2:4]);
+}
+
+function swapSelected(piece) {
+ var selected_corner = (selected < 23 && position[selected] == position[selected+1]);
+ var piece_corner = (piece < 23 && position[piece] == position[piece+1]);
+ if (selected_corner != piece_corner) return;
+ 
+ if (selected_corner) {
+  var c = position[selected+1];
+  position[selected+1] = position[piece+1];
+  position[piece+1] = c;
+  var d = partiality[selected+1];
+  partiality[selected+1] = partiality[piece+1];
+  partiality[piece+1] = d;
+ }
+ var c = position[selected];
+ position[selected] = position[piece];
+ position[piece] = c;
+ var d = partiality[selected];
+ partiality[selected] = partiality[piece];
+ partiality[piece] = d;
+ selected = -1;
+}
+
+function clicked(event) {
+ if (!event) event = window.event;
+ if(event.preventDefault) {event.preventDefault();event.stopPropagation();}
+ var rect = $('c').getBoundingClientRect();
+ var xPixel = event.clientX - rect.left;
+ var yPixel = event.clientY - rect.top;
+ 
+ if (yPixel <= middle_top) {
+  // clicked on top
+  var angle = Math.atan2(top_center[1] - yPixel, xPixel - top_center[0]) * 180 / Math.PI;
+  var piece = (5 + Math.floor((105 - angle)/30)) % 12;
+  if (piece>0 && position[piece] == position[piece-1]) piece--;
+  console.log(piece);
+  if (event.button == 2) {
+   partiality[piece] = (partiality[piece]+1)%3;
+   if (position[piece] == position[piece+1]) partiality[piece+1] = (partiality[piece+1]+1)%3;
+  } else {
+   console.log("Selecting " + piece);
+   if (selected == -1) {
+    selected = piece;
+   } else {
+    swapSelected(piece);
+   }
+  }
+ } else if (yPixel < middle_bottom) {
+  // clicked in middle
+  middle_partial = 1 - middle_partial;
+ } else {
+  // clicked on bottom
+  var angle = Math.atan2(bottom_center[1] - yPixel, xPixel - bottom_center[0]) * 180 / Math.PI;
+  var piece = (12 + (Math.floor((105 - angle)/30)))%12 + 12;
+  if (piece>0 && position[piece] == position[piece-1]) piece--;
+  console.log(piece);
+  if (event.button == 2) {
+   partiality[piece] = (partiality[piece]+1)%3;
+   if (position[piece] == position[piece+1]) partiality[piece+1] = (partiality[piece+1]+1)%3;
+  } else {
+   console.log("Selecting " + piece);
+   if (selected == -1) {
+    selected = piece;
+   } else {
+    swapSelected(piece);
+   }
+  }
+ }
+
+ update();
+}
+
+function drawPoly3(v1, v2, v3, color) {
+ c.strokeStyle = "#000";
+ c.lineWidth = 1;
+ c.fillStyle = color;
+ c.beginPath();
+ c.moveTo(v1[0], v1[1]);
+ c.lineTo(v2[0], v2[1]);
+ c.lineTo(v3[0], v3[1]);
+ c.lineTo(v1[0], v1[1]);
+ c.closePath();
+ c.fill();
+ c.stroke();
+}
+
+function drawPoly4(v1, v2, v3, v4, color) {
+ c.strokeStyle = "#000";
+ c.lineWidth = 1;
+ c.fillStyle = color;
+ c.beginPath();
+ c.moveTo(v1[0], v1[1]);
+ c.lineTo(v2[0], v2[1]);
+ c.lineTo(v3[0], v3[1]);
+ c.lineTo(v4[0], v4[1]);
+ c.lineTo(v1[0], v1[1]);
+ c.closePath();
+ c.fill();
+ c.stroke();
+}
+
+function drawSelection(verts) {
+ console.log("bro");
+ c.strokeStyle = "#ffff00";
+ c.lineWidth = 3;
+ c.beginPath();
+ c.moveTo(verts[0][0], verts[0][1]);
+ for (var i=1; i<verts.length; i++) {
+  c.lineTo(verts[i][0], verts[i][1]);
+ }
+ c.closePath();
+ c.stroke();
+}
+
+function update() {
+ draw();
+ // also want to update output
+ var posstr = "";
+ for (var i=0; i<24; i++) {
+  if (partiality[i]==0) {
+   posstr += "ABCDEFGH12345678"[position[i]];
+  } else if (partiality[i]==1) {
+   if (position[i] < 4) {
+    posstr += "U";
+   } else if (position[i] < 8) {
+    posstr += "V";
+   } else if (position[i] < 12) {
+    posstr += "X";
+   } else {
+    posstr += "Y";
+   }
+  } else {
+   if (position[i] < 8) {
+    posstr += "W";
+   } else {
+    posstr += "Z";
+   }
+  }
+  if (position[i] < 8) i++;
+ }
+ if (middle_partial == 0) {
+  posstr += (middle==0 ? "-" : "/");
+ }
+ 
+ var outstr = "sq1opt.exe " + posstr;
+ if ($("twistMetric").checked) outstr += " -w";
+ if ($("allOptimal").checked) {
+  outstr += " -a";
+  var suboptimal = parseInt($("suboptimal").value);
+  if (!isNaN(suboptimal) && suboptimal > 0) outstr += suboptimal;
+ }
+ if ($("generator").checked) outstr += " -g";
+ if ($("2gen").checked) outstr += " -2";
+ if ($("pseudo2gen").checked) outstr += " -p";
+ if ($("cubeshape").checked) outstr += " -c";
+ if ($("karnotation").checked) outstr += " -k";
+ $("output").value = outstr;
+}
+
+function doU() {
+ var moves = 0;
+ while(moves < 12) {
+  var c = position[11];
+  var d = partiality[11];
+  for (var i=11; i>0; i--) {
+   position[i] = position[i-1];
+   partiality[i] = partiality[i-1];
+  }
+  position[0] = c;
+  partiality[0] = d;
+  moves++;
+  if (isTwistable()) break;
+ }
+ update();
+}
+
+function doUPrime() {
+ var moves = 0;
+ while(moves < 12) {
+  var c = position[0];
+  var d = partiality[0];
+  for (var i=0; i<11; i++) {
+   position[i] = position[i+1];
+   partiality[i] = partiality[i+1];
+  }
+  position[11] = c;
+  partiality[11] = d;
+  moves++;
+  if (isTwistable()) break;
+ }
+ update();
+}
+
+function doD() {
+ var moves = 0;
+ while(moves < 12) {
+  var c = position[23];
+  var d = partiality[23];
+  for (var i=23; i>12; i--) {
+   position[i] = position[i-1];
+   partiality[i] = partiality[i-1];
+  }
+  position[12] = c;
+  partiality[12] = d;
+  moves++;
+  if (isTwistable()) break;
+ }
+ update();
+}
+
+function doDPrime() {
+ var moves = 0;
+ while(moves < 12) {
+  var c = position[12];
+  var d = partiality[12];
+  for (var i=12; i<23; i++) {
+   position[i] = position[i+1];
+   partiality[i] = partiality[i+1];
+  }
+  position[23] = c;
+  partiality[23] = d;
+  moves++;
+  if (isTwistable()) break;
+ }
+ update();
+}
+
+function doSlice() {
+ if(!isTwistable()) return false;
+ for(var i=6;i<12;i++){
+  var c = position[i];
+  position[i] = position[i+6];
+  position[i+6] = c;
+  var d = partiality[i];
+  partiality[i] = partiality[i+6];
+  partiality[i+6] = d;
+ }
+ middle = 1 - middle;
+ update();
+}
+
+function isTwistable() {
+ return position[0]!=position[11] && position[5]!=position[6] && position[12]!=position[23] && position[17]!=position[18];
+}
+
+/********************
+ * HELPER FUNCTIONS *
+ ********************/
+
+function $(str) {return document.getElementById(str);}
+function sqrt(x){return Math.sqrt(x);}
+
+// 2D vector arithmetic
+function add(vec1, vec2, vec3) {
+ if (!vec3) {
+  return [vec1[0]+vec2[0], vec1[1]+vec2[1]];
+ } else {
+  return [vec1[0]+vec2[0]+vec3[0], vec1[1]+vec2[1]+vec3[1]];
+ }
+}
+function sub(vec1, vec2) {
+ return [vec1[0]-vec2[0], vec1[1]-vec2[1]];
+}
+function mul(vec, scal) {
+ return [vec[0]*scal, vec[1]*scal];
+}
+
+function trim(number, nDigits) {
+ if (!number || number == Number.POSITIVE_INFINITY || number == Number.NEGATIVE_INFINITY) number = 0;
+ var power = Math.pow(10, nDigits);
+ var trimmed = "" + Math.round(number * power);
+ while (trimmed.length < nDigits + 1) {
+  trimmed = "0" + trimmed;
+ }
+ var len = trimmed.length;
+ return trimmed.substr(0,len - nDigits) + "." + trimmed.substr(len - nDigits, nDigits);
+}
+
+function getBrowser() {
+ // http://www.quirksmode.org/js/detect.html
+ var versionSearchString;
+ var dataBrowser = [
+  {string:navigator.userAgent, subString:"Chrome", identity:"Chrome"},
+  {string:navigator.userAgent, subString:"Safari", identity:"Chrome"},
+  {string:navigator.userAgent, subString:"Firefox", identity:"Firefox"},
+  {string:navigator.userAgent, subString:"MSIE", identity:"IE", versionSearch:"MSIE"}];
+
+ function searchString(data) {
+  for (var i=0;i<data.length;i++) {
+   var dataString = data[i].string;
+   var dataProp = data[i].prop;
+   if (dataString) {
+    if (dataString.indexOf(data[i].subString) != -1)
+     return data[i].identity;
+   } else if (dataProp)
+    return data[i].identity;
+  }
+ };
+ 
+ return searchString(dataBrowser) || "An unknown browser";
+}
+// -->
+</script>
+</head>
+<body text="white" onload="init()">
+<table><tr><td>
+<div height="500" width="300" id="cube"><canvas id="c" /></div>
+</td><td>
+<input type="button" onclick="doU()" value="U" /><input type="button" onclick="doUPrime()" value="U'" /><br />
+<input type="button" onclick="doSlice()" value="Slice"/><br />
+<input type="button" onclick="doDPrime()" value="D'" /><input type="button" onclick="doD()" value="D" /><br /><br/>
+
+<input type="checkbox" id="twistMetric" onchange="update()"> Twist metric?<br />
+<input type="checkbox" id="allOptimal" onchange="update()"> Generate all optimal sequences?<br />
+<input id="suboptimal" size="2" onchange="update()" /> Number of suboptimal moves (0 if not desired)<br />
+<input type="checkbox" id="generator" onchange="update()"> Generator alg instead of solving alg?<br />
+<input type="checkbox" id="2gen" onchange="update()"> 2Gen?<br />
+<input type="checkbox" id="pseudo2gen" onchange="update()"> Pseudo 2Gen?<br />
+<input type="checkbox" id="cubeshape" onchange="update()"> Stay in cubeshape?<br />
+<input type="checkbox" id="karnotation" onchange="update()"> Karnotation?<br />
+<br /><br />
+Command line input:<br />
+<input id="output" size="40" />
+</td></tr></table>
+</body>
+</html>
