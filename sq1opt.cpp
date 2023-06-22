@@ -991,7 +991,7 @@ class PositionSolver {
 		ignoreTrans=ignoreTrans0;
 		fp = p;
 	};
-	inline int doMove(int m){
+	virtual inline int doMove(int m){
 		const int mirrmv[3]={1,0,2};
 		int r=0;
 		if(m==0){
@@ -1012,7 +1012,7 @@ class PositionSolver {
 		shp2 = stt.tranTable[shp2][mirrmv[m]];
 		return r;
 	}
-	int solve(int twoGen, int extraMoves, bool keepCubeShape){
+	virtual int solve(int twoGen, int extraMoves, bool keepCubeShape){
 		// check that the given position is solvable with these constraints
 		if (twoGen == 2) {
 			// check that 7G8H are solved
@@ -1057,6 +1057,17 @@ class PositionSolver {
 		};
 		return 0;
 	}
+	virtual inline bool isSolved() {
+		if( shp==4163 && e0==69 && e1==44 && e2==44 && c0==69 && c1==44 && c2==44 && middle>=0 ) return true;
+		else return false;
+	}
+	// determine if we should prune this branch of the tree
+	virtual inline bool prunedOut(int l) {
+		if( pr1.table[shp ][e0][c0]>l+1 ) return true;
+		if( pr2.table[shp ][e1][c1]>l+1 ) return true;
+		if( pr2.table[shp2][e2][c2]>l+1 ) return true;
+		return false;
+	}
 	int search( const int l, const int lm, unsigned long *nodes, int twoGen, bool keepCubeShape){
 		int i,r=0;
 
@@ -1087,7 +1098,7 @@ class PositionSolver {
 
 		// check if it is now solved
 		if( l==0 ){
-			if( shp==4163 && e0==69 && e1==44 && e2==44 && c0==69 && c1==44 && c2==44 && middle>=0 ){
+			if(isSolved()){
 				printsol();
 				if(verbosity>=6) std::cout<<"Nodes="<<*nodes<<std::endl<<std::flush;
 				return 1;
@@ -1095,9 +1106,7 @@ class PositionSolver {
 		}
 
 		// prune
-		if( pr1.table[shp ][e0][c0]>l+1 ) return(0);
-		if( pr2.table[shp ][e1][c1]>l+1 ) return(0);
-		if( pr2.table[shp2][e2][c2]>l+1 ) return(0);
+		if(prunedOut(l)) return 0;
 
 		// try all top layer moves
 		if( lm>=2 ){
@@ -1305,121 +1314,22 @@ public:
 		};
 		return 0;
 	}
-	int search( const int l, const int lm, unsigned long *nodes, int twoGen, bool keepCubeShape){
-		int i,r=0;
-
-		// search for l more moves. previous move was lm.
-		(*nodes)++;
-		if( l<0 ) return 0;
-
-		//prune based on transformation
-		// (a,b)/(c,d)/(e,f) -> (6+a,6+b)/(d,c)/(6+e,6+f)
-		// qq note: this step is only done for turn metric, because the pruning steps below are ignored
-		if( turnMetric && !ignoreTrans && twoGen == 0){
-			// (a,b)/(c,d)/(e,f) -> (6+a,6+b)/(d,c)/(6+e,6+f)
-			// moves changes by:
-			// a,b,e,f=0/6 -> m++/m--
-			i=0;
-			if( lastTurns[0]==0 ) i++;
-			else if( lastTurns[0]==6 ) i--;
-			if( lastTurns[1]==0 ) i++;
-			else if( lastTurns[1]==6 ) i--;
-			if( lastTurns[4]==0 ) i++;
-			else if( lastTurns[4]==6 ) i--;
-			if( lastTurns[5]==0 ) i++;
-			else if( lastTurns[5]==6 ) i--;
-			int absTopMove = lastTurns[0]>6 ? 12-lastTurns[0] : lastTurns[0];
-			int absBottomMove = lastTurns[1]>6 ? 12-lastTurns[1] : lastTurns[1];
-			if( i<0 || ( i==0 && ((absTopMove + absBottomMove > 6) || (absTopMove + absBottomMove == 6 && absTopMove < absBottomMove)))) return 0;
-		}
-
-		// check if it is now solved, but we can't rely on e0/c0/etc anymore
-		if( l==0 ){
-			if (fp.matchesSolved() && middle>=0) {
-				printsol();
-				if(verbosity>=6) std::cout<<"Nodes="<<*nodes<<std::endl<<std::flush;
-				return 1;
-			}else if( turnMetric ) return 0;
-		}
-
-		// prune, but only do each check if the relevant values are not -1
+	inline bool isSolved() {
+		return (fp.matchesSolved() && middle>=0);
+	}
+	// determine if we should prune this branch of the tree
+	// we should have a shape-only pruning table
+	inline bool prunedOut(int l) {
 		if (e0>-1 && c0>-1) {
-			if( pr1.table[shp ][e0][c0]>l+1 && pr1.table[shpx][e0][c0]>l+1) return(0);
+			if( pr1.table[shp ][e0][c0]>l+1 && pr1.table[shpx][e0][c0]>l+1) return true;
 		}
 		if (e1>-1 && c1>-1) {
-			if( pr2.table[shp ][e1][c1]>l+1 && pr2.table[shpx][e1][c1]>l+1) return(0);
+			if( pr2.table[shp ][e1][c1]>l+1 && pr2.table[shpx][e1][c1]>l+1) return true;
 		}
 		if (e2>-1 && c2>-1) {
-			if( pr2.table[shp2][e2][c2]>l+1 && pr2.table[shpx2][e2][c2]>l+1) return(0);
+			if( pr2.table[shp2][e2][c2]>l+1 && pr2.table[shpx2][e2][c2]>l+1) return true;
 		}
-		// we need a shape-only pruning table
-
-		// try all top layer moves
-		if( lm>=2 ){
-			i=doMove(0);
-			do{
-				// qq note: Jaap's solver pruned the transformation by only allowing U moves between
-				// 0 and 5. I think it's better to do this on D, see below. We then allow any (x,0).
-				//if( turnMetric || ignoreTrans || twoGen!=0 || i<6 || l<2 ){
-				moveList[moveLen++]=i;
-				lastTurns[4]=i;
-				r+=search( turnMetric?l-1:l, 0, nodes, twoGen, keepCubeShape);
-				moveLen--;
-				if(r!=0 && !findAll) return(r);
-				//}
-				i+=doMove(0);
-			}while( i<12);
-			lastTurns[4]=0;
-		}
-		// try all bot layer moves
-		if( lm!=1 && twoGen != 2){
-			i=doMove(1);
-			do{
-				// if we're allowed to use the transformation, and we're not doing any kind of
-				// 2gen, and we're not in the last two moves, then we should skip this move if the
-				// current (x,y) is worse than the alternative.
-				// the logic for that is: |x| + |y| >= 7, or |x| + |y| = 6 and |y| > |x|
-				int topMove = lastTurns[4];
-				int absTopMove = topMove>6 ? 12-topMove : topMove;
-				int absBottomMove = i>6 ? 12-i : i;
-				if (turnMetric || ignoreTrans || twoGen!=0 || l<2 || (absTopMove + absBottomMove < 6) || (absTopMove + absBottomMove == 6 && absTopMove >= absBottomMove)) {
-					moveList[moveLen++]=i+12;
-					lastTurns[5]=i;
-					if (twoGen != 1 || i==1 || i==11) {
-						r+=search( turnMetric?l-1:l, 1, nodes, twoGen, keepCubeShape);
-					}
-					moveLen--;
-					if(r!=0 && !findAll) return(r);
-				}
-				i+=doMove(1);
-			}while( i<12);
-			lastTurns[5]=0;
-		}
-		// try twist move
-		if( lm!=2 && l>0){
-			int lt0=lastTurns[0], lt1=lastTurns[1];
-			lastTurns[0]=lastTurns[2];
-			lastTurns[1]=lastTurns[3];
-			lastTurns[2]=lastTurns[4];
-			lastTurns[3]=lastTurns[5];
-			lastTurns[4]=0;
-			lastTurns[5]=0;
-			doMove(2);
-			if (!keepCubeShape || ((shp==5052 || shp==4148 || shp==5039 || shp==4163) && (shp2==5052 || shp2==4148 || shp2==5039 || shp2==4163))) {
-				moveList[moveLen++]=0;
-				r+=search(l-1, 2, nodes, twoGen, keepCubeShape);
-				moveLen--;
-				if(r!=0 && !findAll) return(r);
-			}
-			doMove(2);
-			lastTurns[5]=lastTurns[3];
-			lastTurns[4]=lastTurns[2];
-			lastTurns[3]=lastTurns[1];
-			lastTurns[2]=lastTurns[0];
-			lastTurns[1]=lt1;
-			lastTurns[0]=lt0;
-		}
-		return r;
+		return false;
 	}
 };
 
