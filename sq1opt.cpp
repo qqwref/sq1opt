@@ -1141,7 +1141,7 @@ class PositionSolver {
 			lastTurns[5]=0;
 		}
 		// try twist move
-		if( lm!=2 ){
+		if( lm!=2 && l>0){
 			int lt0=lastTurns[0], lt1=lastTurns[1];
 			lastTurns[0]=lastTurns[2];
 			lastTurns[1]=lastTurns[3];
@@ -1396,7 +1396,7 @@ public:
 			lastTurns[5]=0;
 		}
 		// try twist move
-		if( lm!=2 ){
+		if( lm!=2 && l>0){
 			int lt0=lastTurns[0], lt1=lastTurns[1];
 			lastTurns[0]=lastTurns[2];
 			lastTurns[1]=lastTurns[3];
