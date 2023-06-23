@@ -21,6 +21,28 @@ Some of the new features since version 1 are:
 - Automatically checking if the given position is valid and solvable
 - Optional output in Karnotation
 
+Using the Helper
+~~~~~~~~~~~~~~~~
+
+Open helper.html in your favorite browser to get started. You will see a
+Square-1 which you can move in a few ways. Click on the buttons at the top
+right to do moves, or use the keys ijfsl (similar to the virtual cube on
+qcube or csTimer) to do moves more quickly. You can also left click on a
+piece and then left click on another piece to swap them, if they're the same
+type. Finally, you can right click on a piece to change how partial it is:
+either the full piece is there, or any piece of that type and the same
+top/bottom sticker, or any piece of that type.
+
+Then, you can set up the options using the checkboxes and text field on the
+right. These will affect what algs are generated, how many algs are found,
+and how the algs are displayed to you. There is more info about these
+settings in the "Using the program" section below.
+
+Finally, all of that will be automatically modifying the "Command line
+input" box at the lower right. That's a code that you can paste into your
+command line window to find an alg for the position you're looking at. For
+a little more info on command lines, see "Using the program" below.
+
 Notation
 ~~~~~~~~
 
@@ -65,12 +87,14 @@ Using the program
 ~~~~~~~~~~~~~~~~~
 
 On Windows, you should be able to download the .exe file, and then run it
-through cmd (the Windows command line) by nevigating to the folder and then
-typing in:
+through cmd (the Windows command line). Open cmd, then nagivate to the
+folder containing the command line using the change directory command
+"cd <folder>". When you're there, type in:
    sq1opt.exe <position> <options>
-To abort the program while it is still searching, press Ctrl-C or Ctrl-Break.
-If you're on Linux, you will probably want to compile it yourself, but you
-should know how to do that.
+To abort the program while it is still searching, press Ctrl-C or
+Ctrl-Break.
+If you're on Linux, you will probably want to compile the code yourself,
+but you should know how to do that.
 
 You can either use the graphical helper to set up a position and options,
 and then just paste the command into your command line window, or you can
