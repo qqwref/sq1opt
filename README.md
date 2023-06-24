@@ -1,4 +1,4 @@
-# sq1opt
+# sq1opt v2
 
 A square-1 alg search program, updated from Jaap's 2011 version.
 
