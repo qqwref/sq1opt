@@ -10,14 +10,9 @@ div {border-style:solid;border-width:0;}
 <script type="text/javascript">
 <!--
 
-var s=2; // size of cube
-var r1=1, r2=2, l1=1, l2=2; // handshifting
 var cwidth=300, cheight=500; // size of canvas
-var cnt=0; // move count
 
-//var stickers = [];
 var c;
-//var corners=[], edges=[], centers=[], view=[];
 var position = [0, 0, 8, 1, 1, 9, 2, 2, 10, 3, 3, 11, 12, 4, 4, 13, 5, 5, 14, 6, 6, 15, 7, 7];
 var partiality = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // 1 = top/bottom, 2 = any
 var middle = 0;
@@ -382,18 +377,31 @@ function doKey(e) {
  } else if (e.which) {
   keyCode = e.which;
  }
- if (e.stopPropagation) e.stopPropagation();
- e.preventDefault();
+ if (keyCode == 73 || keyCode == 75 || keyCode == 74 || keyCode == 70 || keyCode == 76 || keyCode == 83 || keyCode == 27) {
+  if (e.stopPropagation) e.stopPropagation();
+  e.preventDefault();
+ }
 
  
- //i = /
- if (keyCode == 73) doSlice();
+ //ik = /
+ if (keyCode == 73 || keyCode == 75) doSlice();
  //j f = U U'
  else if (keyCode == 74) doU();
  else if (keyCode == 70) doUPrime();
  //s l = D D'
  else if (keyCode == 83) doD();
  else if (keyCode == 76) doDPrime();
+ 
+ //escape = reset
+ else if (keyCode == 27) {
+  position = [0, 0, 8, 1, 1, 9, 2, 2, 10, 3, 3, 11, 12, 4, 4, 13, 5, 5, 14, 6, 6, 15, 7, 7];
+  partiality = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  update();
+ }
+}
+
+function copy() {
+ navigator.clipboard.writeText($("output").value);
 }
 
 
@@ -460,9 +468,9 @@ function getBrowser() {
 <table><tr><td>
 <div height="500" width="300" id="cube"><canvas id="c" /></div>
 </td><td>
-<input type="button" onclick="doU()" value="U" /><input type="button" onclick="doUPrime()" value="U'" /><br />
+<input type="button" onclick="doUPrime()" value="U'" /><input type="button" onclick="doU()" value="U" /><br />
 <input type="button" onclick="doSlice()" value="Slice"/><br />
-<input type="button" onclick="doDPrime()" value="D'" /><input type="button" onclick="doD()" value="D" /><br /><br/>
+<input type="button" onclick="doD()" value="D" /><input type="button" onclick="doDPrime()" value="D'" /><br /><br/>
 
 <input type="checkbox" id="twistMetric" onchange="update()"> Twist metric?<br />
 <input type="checkbox" id="allOptimal" onchange="update()"> Generate all optimal sequences?<br />
@@ -474,7 +482,7 @@ function getBrowser() {
 <input type="checkbox" id="karnotation" onchange="update()"> Karnotation?<br />
 <br /><br />
 Command line input:<br />
-<input id="output" size="40" />
+<input id="output" size="40" /><input type="button" onclick="copy()" value="Copy to Clipboard" />
 </td></tr></table>
 </body>
 </html>
