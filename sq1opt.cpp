@@ -20,6 +20,10 @@
 #define FILEP1W  "sq1p1w.dat"
 #define FILEP2W  "sq1p2w.dat"
 
+#define TURN_METRIC 0
+#define TWIST_METRIC 1
+#define ANGLE_METRIC 2
+
 const char* errors[]={
 	"Unrecognised command line switch.", //1
 	"Too many command line arguments.",
@@ -160,6 +164,7 @@ bool generator=false;
 bool usenegative=false;
 bool usebrackets=false;
 bool karnotation=false;
+int metric = TURN_METRIC;
 
 
 class HalfLayer {
@@ -950,13 +955,13 @@ public:
 	ShpColTranTable& scte;
 	ShpColTranTable& sctc;
 
-	PrunTable( FullPosition& p0, int cl, ShapeTranTable& stt0, ShpColTranTable& scte0, ShpColTranTable& sctc0, bool turnMetric )
+	PrunTable( FullPosition& p0, int cl, ShapeTranTable& stt0, ShpColTranTable& scte0, ShpColTranTable& sctc0)
 		: stt(stt0), scte(scte0), sctc(sctc0)
 	{
 		// Calculate pruning table
 		table = new char[NUMSHAPES][70][70];
 		const char *fname;
-		if( turnMetric ){
+		if( metric == TURN_METRIC ){
 			fname = (cl==0)? FILEP1U : FILEP2U;
 		}else{
 			fname = (cl==0)? FILEP1W : FILEP2W;
@@ -978,7 +983,7 @@ public:
 			int c0 = p0.getCornerColouring(cl);
 			e0 = scte0.ct.choice2Idx[e0];
 			c0 = sctc0.ct.choice2Idx[c0];
-			if( turnMetric ){
+			if (metric == TURN_METRIC){
 				table[s0][e0][c0]=1;
 			}else{
 				setAll(s0,e0,c0,1);
@@ -989,7 +994,7 @@ public:
 			do{
 				if(verbosity>=6) std::cout<<" l="<<(int)(l-1)<<"  n="<<(int)n<<std::endl;
 				n=0;
-				if( turnMetric ){
+				if (metric == TURN_METRIC){
 					for( int i0=0; i0<NUMSHAPES; i0++ ){
 					for( int i1=0; i1<70; i1++){
 					for( int i2=0; i2<70; i2++){
@@ -1084,13 +1089,12 @@ class PositionSolver {
 	int moveList[50];
 	int moveLen;
 	int lastTurns[6];
-	bool turnMetric;
 	bool findAll;
 	bool ignoreTrans;
 
 	PositionSolver( ShapeTranTable& stt0, ShpColTranTable& scte0, ShpColTranTable& sctc0, PrunTable& pr10, PrunTable& pr20 )
 		: stt(stt0), scte(scte0), sctc(sctc0), pr1(pr10), pr2(pr20) {};
-	void set(FullPosition& p, bool turnMetric0, bool findAll0, bool ignoreTrans0){
+	void set(FullPosition& p, bool findAll0, bool ignoreTrans0){
 		int cc0 = p.getCornerColouring(0);
 		int cc1 = p.getCornerColouring(1);
 		int cc2 = p.getCornerColouring(2);
@@ -1106,7 +1110,6 @@ class PositionSolver {
 		shp = stt.getShape(p.getShape(),p.getParityOdd());
 		shp2 = stt.tranTable[shp][3];
 		middle = p.middle;
-		turnMetric=turnMetric0;
 		findAll=findAll0;
 		ignoreTrans=ignoreTrans0;
 		fp = p;
@@ -1161,18 +1164,18 @@ class PositionSolver {
 		unsigned long nodes=0;
 		// only even lengths if twist metric and middle is square
 		int l=-1;
-		if( !turnMetric && middle==1 ) l=-2;
+		if (metric == TWIST_METRIC && middle==1) l=-2;
 		// do ida
 		int optimalMoves = -1;
 		while(true){
 			l++;
-			if( !turnMetric && middle!=0 ) l++;
+			if (metric == TWIST_METRIC && middle!=0) l++;
 			if(verbosity>=5) std::cout<<"searching depth "<<l<<std::endl<<std::flush;
 			for( int i=0; i<6; i++) lastTurns[i]=0;
 			int searchResult = search(l,3, &nodes, twoGen, keepCubeShape);
 			if (searchResult != 0) {
 				if (optimalMoves == -1) optimalMoves = l;
-				if (l >= optimalMoves + extraMoves || (!turnMetric && middle!=0 && l+1 >= optimalMoves + extraMoves)) break;
+				if (l >= optimalMoves + extraMoves || (metric == TWIST_METRIC && middle!=0 && l+1 >= optimalMoves + extraMoves)) break;
 			}
 		};
 		return 0;
@@ -1198,7 +1201,7 @@ class PositionSolver {
 		//prune based on transformation
 		// (a,b)/(c,d)/(e,f) -> (6+a,6+b)/(d,c)/(6+e,6+f)
 		// qq note: this step is only done for turn metric, because the pruning steps below are ignored
-		if( turnMetric && !ignoreTrans && twoGen == 0){
+		if( metric == TURN_METRIC && !ignoreTrans && twoGen == 0){
 			// (a,b)/(c,d)/(e,f) -> (6+a,6+b)/(d,c)/(6+e,6+f)
 			// moves changes by:
 			// a,b,e,f=0/6 -> m++/m--
@@ -1222,7 +1225,7 @@ class PositionSolver {
 				printsol();
 				if(verbosity>=6) std::cout<<"Nodes="<<*nodes<<std::endl<<std::flush;
 				return 1;
-			}else if( turnMetric ) return 0;
+			}else if( metric == TURN_METRIC ) return 0;
 		}
 
 		// prune
@@ -1234,13 +1237,11 @@ class PositionSolver {
 			do{
 				// qq note: Jaap's solver pruned the transformation by only allowing U moves between
 				// 0 and 5. I think it's better to do this on D, see below. We then allow any (x,0).
-				//if( turnMetric || ignoreTrans || twoGen!=0 || i<6 || l<2 ){
 				moveList[moveLen++]=i;
 				lastTurns[4]=i;
-				r+=search( turnMetric?l-1:l, 0, nodes, twoGen, keepCubeShape);
+				r+=search( metric==TURN_METRIC?l-1:l, 0, nodes, twoGen, keepCubeShape);
 				moveLen--;
 				if(r!=0 && !findAll) return(r);
-				//}
 				i+=doMove(0);
 			}while( i<12);
 			lastTurns[4]=0;
@@ -1256,11 +1257,11 @@ class PositionSolver {
 				int topMove = lastTurns[4];
 				int absTopMove = topMove>6 ? 12-topMove : topMove;
 				int absBottomMove = i>6 ? 12-i : i;
-				if (turnMetric || ignoreTrans || twoGen!=0 || l<2 || (absTopMove + absBottomMove < 6) || (absTopMove + absBottomMove == 6 && absTopMove >= absBottomMove)) {
+				if (metric==TURN_METRIC || ignoreTrans || twoGen!=0 || l<2 || (absTopMove + absBottomMove < 6) || (absTopMove + absBottomMove == 6 && absTopMove >= absBottomMove)) {
 					moveList[moveLen++]=i+12;
 					lastTurns[5]=i;
 					if (twoGen != 1 || i==1 || i==11) {
-						r+=search( turnMetric?l-1:l, 1, nodes, twoGen, keepCubeShape);
+						r+=search( metric==TURN_METRIC?l-1:l, 1, nodes, twoGen, keepCubeShape);
 					}
 					moveLen--;
 					if(r!=0 && !findAll) return(r);
@@ -1396,8 +1397,8 @@ class PartialPositionSolver : public PositionSolver {
 public:
 	PartialPositionSolver( ShapeTranTable& stt0, ShpColTranTable& scte0, ShpColTranTable& sctc0, PrunTable& pr10, PrunTable& pr20 )
 	    : PositionSolver(stt0, scte0, sctc0, pr10, pr20) {}
-	void set(FullPosition& p, bool turnMetric0, bool findAll0, bool ignoreTrans0){
-		PositionSolver::set(p, turnMetric0, findAll0, ignoreTrans0);
+	void set(FullPosition& p, bool findAll0, bool ignoreTrans0){
+		PositionSolver::set(p, findAll0, ignoreTrans0);
 		shpx = stt.getShape(p.getShape(),!p.getParityOdd());
 		shpx2 = stt.tranTable[shpx][3];
 	};
@@ -1459,18 +1460,18 @@ public:
 		unsigned long nodes=0;
 		// only even lengths if twist metric and middle is square
 		int l=-1;
-		if( !turnMetric && middle==1 ) l=-2;
+		if( metric==TWIST_METRIC && middle==1 ) l=-2;
 		// do ida
 		int optimalMoves = -1;
 		while(true){
 			l++;
-			if( !turnMetric && middle!=0 ) l++;
+			if( metric==TWIST_METRIC && middle!=0 ) l++;
 			if(verbosity>=5) std::cout<<"searching depth "<<l<<std::endl<<std::flush;
 			for( int i=0; i<6; i++) lastTurns[i]=0;
 			int searchResult = search(l,3, &nodes, twoGen, keepCubeShape);
 			if (searchResult != 0) {
 				if (optimalMoves == -1) optimalMoves = l;
-				if (l >= optimalMoves + extraMoves || (!turnMetric && middle!=0 && l+1 >= optimalMoves + extraMoves)) break;
+				if (l >= optimalMoves + extraMoves || (metric==TWIST_METRIC && middle!=0 && l+1 >= optimalMoves + extraMoves)) break;
 			}
 		};
 		return 0;
@@ -1550,7 +1551,6 @@ void help(){
 int main(int argc, char* argv[]){
 	bool ignoreMid=false;
 	bool ignoreTrans=false;
-	bool turnMetric=true;
 	bool findAll=false;
 	int twoGen = 0; // 0 = false, 1 = pseudo 2gen, 2 = true 2gen
 	int numpos = -1;
@@ -1564,7 +1564,7 @@ int main(int argc, char* argv[]){
 			switch( argv[i][1] ){
 				case 'w':
 				case 'W':
-					turnMetric=false; break;
+					metric=TWIST_METRIC; break;
 				case 'x':
 				case 'X':
 					ignoreTrans=true; break;
@@ -1661,15 +1661,15 @@ int main(int argc, char* argv[]){
 	//calculate pruning tables for two colourings
 	FullPosition q;
 	if(verbosity>=4) std::cout << "  2. Colouring 1 pruning table"<<std::endl;
-	PrunTable pr1(q, 0, st,scte,sctc, turnMetric );
+	PrunTable pr1(q, 0, st,scte,sctc );
 	if(verbosity>=4) std::cout << "  1. Colouring 2 pruning table"<<std::endl;
-	PrunTable pr2(q, 1, st,scte,sctc, turnMetric );
+	PrunTable pr2(q, 1, st,scte,sctc );
 	if(verbosity>=4) std::cout << "  0. Finished."<<std::endl;
 	PositionSolver ps( st, scte, sctc, pr1, pr2 );
 	PartialPositionSolver pps( st, scte, sctc, pr1, pr2 );
 
 	if(verbosity>=2){
-		std::cout<<"Flags: "<<(turnMetric? "Turn":"Twist")<<" Metric, ";
+		std::cout<<"Flags: "<<(metric==TURN_METRIC? "Turn":"Twist")<<" Metric, ";
 		std::cout<<"Find "<< (findAll? "every ":"first ");
 		std::cout<< (generator? "generator":"solution");
 		if (twoGen == 1) {
@@ -1709,7 +1709,7 @@ int main(int argc, char* argv[]){
 
 		if (p.isPartial()) {
 			// convert position to colour encoding
-			pps.set(p, turnMetric, findAll, ignoreTrans);
+			pps.set(p, findAll, ignoreTrans);
 
 			//solve position
 			int r = pps.solve(twoGen, extraMoves, keepCubeShape);
@@ -1717,7 +1717,7 @@ int main(int argc, char* argv[]){
 			std::cout<<std::endl;
 		} else {
 			// convert position to colour encoding
-			ps.set(p, turnMetric, findAll, ignoreTrans);
+			ps.set(p, findAll, ignoreTrans);
 
 			//solve position
 			int r = ps.solve(twoGen, extraMoves, keepCubeShape);
