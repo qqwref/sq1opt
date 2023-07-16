@@ -19,6 +19,8 @@
 #define FILEP2U  "sq1p2u.dat"
 #define FILEP1W  "sq1p1w.dat"
 #define FILEP2W  "sq1p2w.dat"
+#define FILEP1A  "sq1p1a.dat"
+#define FILEP2A  "sq1p2a.dat"
 
 #define TURN_METRIC 0
 #define TWIST_METRIC 1
@@ -961,9 +963,11 @@ public:
 		// Calculate pruning table
 		table = new char[NUMSHAPES][70][70];
 		const char *fname;
-		if( metric == TURN_METRIC ){
+		if(metric == TURN_METRIC){
 			fname = (cl==0)? FILEP1U : FILEP2U;
-		}else{
+		} else if (metric == ANGLE_METRIC) {
+			fname = (cl==0)? FILEP1A : FILEP2A;
+		} else {
 			fname = (cl==0)? FILEP1W : FILEP2W;
 		}
 
@@ -983,7 +987,7 @@ public:
 			int c0 = p0.getCornerColouring(cl);
 			e0 = scte0.ct.choice2Idx[e0];
 			c0 = sctc0.ct.choice2Idx[c0];
-			if (metric == TURN_METRIC){
+			if (metric == TURN_METRIC || metric == ANGLE_METRIC){
 				table[s0][e0][c0]=1;
 			}else{
 				setAll(s0,e0,c0,1);
@@ -994,7 +998,7 @@ public:
 			do{
 				if(verbosity>=6) std::cout<<" l="<<(int)(l-1)<<"  n="<<(int)n<<std::endl;
 				n=0;
-				if (metric == TURN_METRIC){
+				if (metric == TURN_METRIC || metric == ANGLE_METRIC){
 					for( int i0=0; i0<NUMSHAPES; i0++ ){
 					for( int i1=0; i1<70; i1++){
 					for( int i2=0; i2<70; i2++){
@@ -1225,7 +1229,7 @@ class PositionSolver {
 				printsol();
 				if(verbosity>=6) std::cout<<"Nodes="<<*nodes<<std::endl<<std::flush;
 				return 1;
-			}else if( metric == TURN_METRIC ) return 0;
+			}else if( metric != TWIST_METRIC ) return 0;
 		}
 
 		// prune
@@ -1239,7 +1243,8 @@ class PositionSolver {
 				// 0 and 5. I think it's better to do this on D, see below. We then allow any (x,0).
 				moveList[moveLen++]=i;
 				lastTurns[4]=i;
-				r+=search( metric==TURN_METRIC?l-1:l, 0, nodes, twoGen, keepCubeShape);
+				int absTopMove = i>6 ? 12-i : i;
+				r+=search( metric==TURN_METRIC?l-1:metric==ANGLE_METRIC?l-absTopMove:l, 0, nodes, twoGen, keepCubeShape);
 				moveLen--;
 				if(r!=0 && !findAll) return(r);
 				i+=doMove(0);
@@ -1261,7 +1266,7 @@ class PositionSolver {
 					moveList[moveLen++]=i+12;
 					lastTurns[5]=i;
 					if (twoGen != 1 || i==1 || i==11) {
-						r+=search( metric==TURN_METRIC?l-1:l, 1, nodes, twoGen, keepCubeShape);
+						r+=search( metric==TURN_METRIC?l-1:metric==ANGLE_METRIC?l-absBottomMove:l, 1, nodes, twoGen, keepCubeShape);
 					}
 					moveLen--;
 					if(r!=0 && !findAll) return(r);
@@ -1282,6 +1287,7 @@ class PositionSolver {
 			doMove(2);
 			if (!keepCubeShape || ((shp==5052 || shp==4148 || shp==5039 || shp==4163) && (shp2==5052 || shp2==4148 || shp2==5039 || shp2==4163))) {
 				moveList[moveLen++]=0;
+				// note that if angle metric is defined to count twists as 0, it will sometimes miss the optimal solution because the current pruning tables count how many twists a position is away from solved
 				r+=search(l-1, 2, nodes, twoGen, keepCubeShape);
 				moveLen--;
 				if(r!=0 && !findAll) return(r);
@@ -1327,19 +1333,22 @@ class PositionSolver {
 		std::string out = "";
 		int tw=0, tu=0;
 		int mu=0, md=0;
+		int angle=0;
 		if( generator ){
 			for( int i=moveLen-1; i>=0; i--){
 				if( moveList[i]==0 ){
 					out += printmove(mu, md, (tw==0 && karnotation));
 					mu = md = 0;
 					out += "/";
-					tu++; tw++;
+					tu++; tw++; angle++;
 				}else if( moveList[i]<12 ){
 					mu = normaliseMove(mu-moveList[i]);
 					tu++;
+					angle += (mu<0?-mu:mu);
 				}else{
 					md = normaliseMove(md+moveList[i]);
 					tu++;
+					angle += (md<0?-md:md);
 				}
 			}
 		}else{
@@ -1348,13 +1357,15 @@ class PositionSolver {
 					out += printmove(mu, md, (tw==0 && karnotation));
 					mu = md = 0;
 					out += "/";
-					tu++; tw++;
+					tu++; tw++; angle++;
 				}else if( moveList[i]<12 ){
 					mu = normaliseMove(mu+moveList[i]);
 					tu++;
+					angle += (mu<0?-mu:mu);
 				}else{
 					md = normaliseMove(md-moveList[i]);
 					tu++;
+					angle += (md<0?-md:md);
 				}
 			}
 		}
@@ -1386,7 +1397,9 @@ class PositionSolver {
 			out = replaceAll(out, std::string("7"), std::string("-5"));
 		}
 		std::cout << out;
-		std::cout <<"  ["<<tw<<"|"<<tu<<"] "<<std::endl;
+		std::cout <<"  ["<<tw<<"|"<<tu;
+		if (metric == ANGLE_METRIC) std::cout<<"|"<<angle;
+		std::cout<<"] "<<std::endl;
 	}
 };
 
@@ -1565,6 +1578,9 @@ int main(int argc, char* argv[]){
 				case 'w':
 				case 'W':
 					metric=TWIST_METRIC; break;
+				case 'l':
+				case 'L':
+					metric=ANGLE_METRIC; break;
 				case 'x':
 				case 'X':
 					ignoreTrans=true; break;
