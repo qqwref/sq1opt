@@ -1702,6 +1702,7 @@ int main(int argc, char* argv[]){
 	srand( (unsigned)time( NULL ) );
 	char buffer[2000];
 	do{
+		clock_t now = clock();
 		if( posArg<0 ){
 			if( inpFile!=NULL ){
 				is.getline(buffer,1999);
@@ -1730,7 +1731,6 @@ int main(int argc, char* argv[]){
 			//solve position
 			int r = pps.solve(twoGen, extraMoves, keepCubeShape);
 			if (r) show(r);
-			std::cout<<std::endl;
 		} else {
 			// convert position to colour encoding
 			ps.set(p, findAll, ignoreTrans);
@@ -1738,8 +1738,10 @@ int main(int argc, char* argv[]){
 			//solve position
 			int r = ps.solve(twoGen, extraMoves, keepCubeShape);
 			if (r) show(r);
-			std::cout<<std::endl;
 		}
+		
+		if (verbosity>=6) std::cout << "Time: " << (clock() - now);
+		std::cout<<std::endl;
 	}while( posArg<0 && ( (inpFile!=NULL && !is.eof() ) || (inpFile==NULL && (numpos==0 || numpos-- > 1)) ));
 
 	return(0);
