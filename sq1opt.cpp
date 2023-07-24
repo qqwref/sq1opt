@@ -995,10 +995,11 @@ public:
 
 			char l=1;
 			int n=1;
+			int last_nonzero=-1;
 			do{
 				if(verbosity>=6) std::cout<<" l="<<(int)(l-1)<<"  n="<<(int)n<<std::endl;
 				n=0;
-				if (metric == TURN_METRIC || metric == ANGLE_METRIC){
+				if (metric == TURN_METRIC){
 					for( int i0=0; i0<NUMSHAPES; i0++ ){
 					for( int i1=0; i1<70; i1++){
 					for( int i2=0; i2<70; i2++){
@@ -1022,6 +1023,42 @@ public:
 							}
 						}
 					}}}
+				}else if (metric == ANGLE_METRIC) {
+					for( int i0=0; i0<NUMSHAPES; i0++ ){
+					for( int i1=0; i1<70; i1++){
+					for( int i2=0; i2<70; i2++){
+						if( table[i0][i1][i2]==l ){
+							for( int m=0; m<3; m++){ // m is the move type, U/D/slice
+								int j0=i0, j1=i1, j2=i2;
+								int w=0, newcnt=0;
+								do{
+									if(m==0){
+										w+=stt.getTopTurn(j0);
+									}else if(m==1){
+										w+=stt.getBotTurn(j0);
+									}else{
+										w++;
+									}
+									// w is the move amount
+									j2=sctc.tranTable[j0][j2][m];
+									j1=scte.tranTable[j0][j1][m];
+									j0=stt.tranTable[j0][m];
+									if (m==2) {
+										newcnt = l + 1;
+									} else {
+										newcnt = l + (w>6 ? 12-w : w);
+									}
+									if( table[j0][j1][j2]==0 || table[j0][j1][j2] > newcnt ){
+										table[j0][j1][j2]=newcnt;
+										n++;
+									}
+									if(w>12){
+										exit(0);
+									}
+								}while(j0!=i0 || j1!=i1 || j2!=i2 );
+							}
+						}
+					}}}
 				}else{
 					for( int i0=0; i0<NUMSHAPES; i0++ ){
 					for( int i1=0; i1<70; i1++){
@@ -1038,7 +1075,8 @@ public:
 					}}}
 				}
 				l++;
-			}while(n!=0);
+				if (n!=0) last_nonzero=l;
+			}while(l - last_nonzero < 10);
 			if(verbosity>=6) std::cout<<std::endl;
 
 		// save to file
