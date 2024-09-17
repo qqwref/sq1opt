@@ -1,7 +1,7 @@
-SQUARE-1 OPTIMISER version 2.0
+SQUARE-1 OPTIMISER version 2.1
 ~~~~~~~~~~~~~~~~~~
 by Jaap Scherphuis, jaapsch@yahoo.com, copyright 2003-2011
-and Michael Gottlieb, qqwref@gmail.com, copyright 2023
+and Michael Gottlieb, qqwref@gmail.com, copyright 2023-2024
 
 This program implements a search algorithm to find optimal and suboptimal
 algs for the Square-1.
@@ -137,6 +137,10 @@ There are some optional command line switches you can use:
   -c     Look for algs that stay in cube shape the whole time.
   -k     Output algs in Karnotation. This will ignore adjustments of U/D
            before and after the alg, except for moves of plus or minus 1.
+  -X<n>  Only allow top layer turns of at most n in either direction.
+  -Y<n>  Only allow bottom layer turns of at most n in either direction.
+  -Z<n>  Only allow turns of at most n total turns - that is,
+           abs(x) + abs(y) <= n.
 
 
 When first run it calculates various tables which are stored in files
@@ -222,6 +226,7 @@ Version History
 10 March     2011, Jaap:    Version 1.02,  extra output settings,
                                            generator sequences, help
    June      2023, Michael: Version 2.00,  various outputs
+   September 2024, Michael: Version 2.10,  turn amount limits
 
 Jaap thanks Mike Godfrey for his previous work, and I similarly would like
 to thank Jaap for his.
@@ -231,6 +236,6 @@ qq's Homepage:  http://www.mzrg.com/
 
 ----------------------------------------------------------------------------
 This program was written by Jaap Scherphuis, copyright August 2003-2011,
-and Michael Gottlieb, copyright 2023.
+and Michael Gottlieb, copyright 2023-2024.
 It may not be sold. It may be freely distributed provided this
 documentation is provided in some form without changes to the text.

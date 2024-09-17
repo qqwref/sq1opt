@@ -281,6 +281,18 @@ function update() {
  if ($("pseudo2gen").checked) outstr += " -p";
  if ($("cubeshape").checked) outstr += " -c";
  if ($("karnotation").checked) outstr += " -k";
+ if ($("maxX").checked) {
+  var maxX_text = parseInt($("maxX_text").value);
+  if (!isNaN(maxX_text) && maxX_text >= 0 && maxX_text <= 6) outstr += " -X" + maxX_text;
+ }
+ if ($("maxY").checked) {
+  var maxY_text = parseInt($("maxY_text").value);
+  if (!isNaN(maxY_text) && maxY_text >= 0 && maxY_text <= 6) outstr += " -Y" + maxY_text;
+ }
+ if ($("maxTotal").checked) {
+  var maxTotal_text = parseInt($("maxTotal_text").value);
+  if (!isNaN(maxTotal_text) && maxTotal_text >= 0 && maxTotal_text <= 12) outstr += " -Z" + maxTotal_text;
+ }
  $("output").value = outstr;
 }
 
@@ -480,6 +492,9 @@ function getBrowser() {
 <input type="checkbox" id="pseudo2gen" onchange="update()"> Pseudo 2Gen?<br />
 <input type="checkbox" id="cubeshape" onchange="update()"> Stay in cubeshape?<br />
 <input type="checkbox" id="karnotation" onchange="update()"> Karnotation?<br />
+<input type="checkbox" id="maxX" onchange="update()">Maximum top turn: <input id="maxX_text" size="2" onchange="update()" /><br />
+<input type="checkbox" id="maxY" onchange="update()">Maximum bottom turn: <input id="maxY_text" size="2" onchange="update()" /><br />
+<input type="checkbox" id="maxTotal" onchange="update()">Maximum total turn: <input id="maxTotal_text" size="2" onchange="update()" /><br />
 <br /><br />
 Command line input:<br />
 <input id="output" size="40" /><input type="button" onclick="copy()" value="Copy to Clipboard" />
