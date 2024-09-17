@@ -1,7 +1,7 @@
 /*
- * SQUARE-1 OPTIMISER version 2.0
+ * SQUARE-1 OPTIMISER version 2.1
  * by Jaap Scherphuis, jaapsch@yahoo.com, copyright 2003-2011
- * and Michael Gottlieb, qqwref@gmail.com, copyright 2023
+ * and Michael Gottlieb, qqwref@gmail.com, copyright 2023-2024
  */
 
 #include <fstream>
@@ -167,7 +167,9 @@ bool usenegative=false;
 bool usebrackets=false;
 bool karnotation=false;
 int metric = TURN_METRIC;
-
+int maxX = 6;
+int maxY = 6;
+int maxTotal = 12;
 
 class HalfLayer {
 public:
@@ -1279,12 +1281,14 @@ class PositionSolver {
 			do{
 				// qq note: Jaap's solver pruned the transformation by only allowing U moves between
 				// 0 and 5. I think it's better to do this on D, see below. We then allow any (x,0).
-				moveList[moveLen++]=i;
-				lastTurns[4]=i;
 				int absTopMove = i>6 ? 12-i : i;
-				r+=search( metric==TURN_METRIC?l-1:metric==ANGLE_METRIC?l-absTopMove:l, 0, nodes, twoGen, keepCubeShape);
-				moveLen--;
-				if(r!=0 && !findAll) return(r);
+				if (absTopMove <= maxX && absTopMove <= maxTotal) {
+					moveList[moveLen++]=i;
+					lastTurns[4]=i;
+					r+=search( metric==TURN_METRIC?l-1:metric==ANGLE_METRIC?l-absTopMove:l, 0, nodes, twoGen, keepCubeShape);
+					moveLen--;
+					if(r!=0 && !findAll) return(r);
+				}
 				i+=doMove(0);
 			}while( i<12);
 			lastTurns[4]=0;
@@ -1300,7 +1304,7 @@ class PositionSolver {
 				int topMove = lastTurns[4];
 				int absTopMove = topMove>6 ? 12-topMove : topMove;
 				int absBottomMove = i>6 ? 12-i : i;
-				if (metric==TURN_METRIC || ignoreTrans || twoGen!=0 || l<2 || (absTopMove + absBottomMove < 6) || (absTopMove + absBottomMove == 6 && absTopMove >= absBottomMove)) {
+				if ((absBottomMove <= maxY) && (absBottomMove + absTopMove <= maxTotal) && (metric==TURN_METRIC || ignoreTrans || twoGen!=0 || l<2 || (absTopMove + absBottomMove < 6) || (absTopMove + absBottomMove == 6 && absTopMove >= absBottomMove))) {
 					moveList[moveLen++]=i+12;
 					lastTurns[5]=i;
 					if (twoGen != 1 || i==1 || i==11) {
@@ -1576,8 +1580,8 @@ void help(){
 	std::cout<<"   U is a top corner, V is a bottom corner, W is any corner,"<<std::endl;
 	std::cout<<"   X is a top edge,   Y is a bottom edge,   Z is any edge."<<std::endl;
 	std::cout<<"<movesequence> is a string encoding a sequence of moves. Layer turns are"<<std::endl;
-	std::cout<<"   denoted by (t,b) where t and b are integers indicating that the top and"<<std::endl;
-	std::cout<<"   bottom layers are turned by t and b twelths of a full circle. Positive"<<std::endl;
+	std::cout<<"   denoted by (x,y) where x and y are integers indicating that the top and"<<std::endl;
+	std::cout<<"   bottom layers are turned by x and y twelths of a full circle. Positive"<<std::endl;
 	std::cout<<"   numbers are clockwise turns, negative anti-clockwise."<<std::endl;
 	std::cout<<"<switches> are one of more of the following command line switches:"<<std::endl;
 	std::cout<<"   -w     Use only the number of twists to measure length, not layer turns."<<std::endl;
@@ -1595,6 +1599,9 @@ void help(){
 	std::cout<<"   -p     Pseudo 2gen - only allow bottom layer moves of 1, 0, -1."<<std::endl;
 	std::cout<<"   -c     Only generate algs that stay in a square/square cubeshape."<<std::endl;
 	std::cout<<"   -k     Output algs in Karnotation. Ignores ABF."<<std::endl;
+	std::cout<<"   -X>n>  Only allow top layer turns of a maximum of n in either direction."<<std::endl;
+	std::cout<<"   -Y>n>  Only allow bottom layer turns of a maximum of n in either direction."<<std::endl;
+	std::cout<<"   -Z>n>  Only allow turns of a maximum of n total turn amount (abs(X) + abs(Y))."<<std::endl;
 }
 
 
@@ -1610,6 +1617,7 @@ int main(int argc, char* argv[]){
 	usenegative=true; // why would you not want negative turns?
 	int extraMoves = 0;
 	bool keepCubeShape = false;
+	int parsedValue = 0;
 	for( int i=1; i<argc; i++){
 		if( argv[i][0]=='-' ){
 			switch( argv[i][1] ){
@@ -1620,7 +1628,6 @@ int main(int argc, char* argv[]){
 				case 'L':
 					metric=ANGLE_METRIC; break;
 				case 'x':
-				case 'X':
 					ignoreTrans=true; break;
 				case 'a':
 				case 'A':
@@ -1674,6 +1681,18 @@ int main(int argc, char* argv[]){
 				case 'K':
 					karnotation = true;
 					break;
+				case 'X':
+					parsedValue = parseInteger(argv[i]+2);
+					if (parsedValue >= 0 && parsedValue <= 6) maxX = parsedValue;
+					break;
+				case 'Y':
+					parsedValue = parseInteger(argv[i]+2);
+					if (parsedValue >= 0 && parsedValue <= 6) maxY = parsedValue;
+					break;
+				case 'Z':
+					parsedValue = parseInteger(argv[i]+2);
+					if (parsedValue >= 1 && parsedValue <= 12) maxTotal = parsedValue;
+					break;
 				default:
 					return show(1);
 			}
@@ -1685,6 +1704,8 @@ int main(int argc, char* argv[]){
 	}
 	
 	if (twoGen == 2 && keepCubeShape) return show(18);
+	// don't use the equivalence if we want to limit move amounts
+	if (maxX != 6 || maxY != 6 || maxTotal != 12) ignoreTrans = true; 
 
 	FullPosition p;
 	std::ifstream is;
